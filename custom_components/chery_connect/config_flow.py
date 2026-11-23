@@ -56,6 +56,7 @@ from .const import (
     IL_COUNTRY_CODE,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    VISIBLE_PLATE_DIGITS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -88,6 +89,12 @@ def normalize_phone(value: str) -> str:
     if digits.startswith(IL_COUNTRY_CODE):
         return f"0{digits.removeprefix(IL_COUNTRY_CODE)}"
     return digits
+
+
+def mask_v_number(v_number: str) -> str:
+    """Return the plate with all but its last digits hidden ("1234567" -> "••••567")."""
+    hidden = max(len(v_number) - VISIBLE_PLATE_DIGITS, 0)
+    return "•" * hidden + v_number[hidden:]
 
 
 def _minutes(value: timedelta) -> int:
@@ -191,7 +198,7 @@ class CheryConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._get_reauth_entry(), data_updates={CONF_TOKEN: token}
             )
         return self.async_create_entry(
-            title=f"Chery {self._v_number}",
+            title=f"Chery {mask_v_number(self._v_number)}",
             data={
                 CONF_MOBILE_PHONE: self._mobile_phone,
                 CONF_V_NUMBER: self._v_number,

@@ -75,6 +75,7 @@ async def test_user_flow_creates_entry(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["result"].unique_id == V_NUMBER
+    assert result["title"] == "Chery ••••567"
     assert result["data"] == {
         CONF_MOBILE_PHONE: PHONE,
         CONF_V_NUMBER: V_NUMBER,

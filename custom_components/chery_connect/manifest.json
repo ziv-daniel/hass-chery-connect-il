@@ -10,6 +10,9 @@
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/ziv-daniel/hass-chery-connect-il/issues",
+  "loggers": [
+    "custom_components.chery_connect"
+  ],
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
