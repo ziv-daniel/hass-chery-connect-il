@@ -24,6 +24,7 @@ from .const import (
     ENDPOINT_LOGIN_OTP_CHECK,
     ENDPOINT_TEST_TOKEN,
     ENDPOINT_VEHICLE_INFO,
+    MIN_TOKEN_LENGTH,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -164,7 +165,7 @@ class CheryConnectApiClient:
             auth=False,
         )
         token = payload.get("token")
-        if not isinstance(token, str) or len(token) <= 10:
+        if not isinstance(token, str) or len(token) <= MIN_TOKEN_LENGTH:
             raise InvalidOtpError("No usable token returned for the OTP code")
         self._token = token
         return token

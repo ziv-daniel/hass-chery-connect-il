@@ -1,1 +1,56 @@
-{"config":{"abort":{"already_configured":"This vehicle is already configured."},"error":{"blocked":"The server refused this login. Check the phone and vehicle numbers.","cannot_connect":"Could not reach the Chery Connect service. Check the connection and try again.","invalid_otp":"The SMS code was rejected. Request a new code and try again.","unknown":"An unknown error occurred."},"step":{"otp":{"data":{"code":"SMS code"},"description":"Enter the code sent by SMS to your phone.","title":"Enter the SMS code"},"user":{"data":{"mobile_phone":"Mobile phone","v_number":"Vehicle number"},"description":"Enter the mobile phone number and vehicle number you use in the Chery Connect app. An SMS code will be sent to this phone.","title":"Connect your Chery"}}},"options":{"step":{"init":{"data":{"scan_interval":"Refresh interval (minutes)"},"description":"How often to refresh the vehicle data. Minimum 5 minutes.","title":"Chery Connect options"}}}}
+{
+  "config": {
+    "abort": {
+      "already_configured": "This vehicle is already configured.",
+      "reauth_successful": "Re-authentication was successful.",
+      "unique_id_mismatch": "This login belongs to a different vehicle than the one configured."
+    },
+    "error": {
+      "blocked": "The server refused this login. Check the phone and vehicle numbers.",
+      "cannot_connect": "Could not reach the Chery Connect service. Check the connection and try again.",
+      "invalid_otp": "The SMS code was rejected. Request a new code and try again.",
+      "unknown": "An unknown error occurred.",
+      "invalid_input": "Enter a valid phone number and vehicle number."
+    },
+    "step": {
+      "otp": {
+        "data": {
+          "code": "SMS code",
+          "resend": "Send a new code"
+        },
+        "description": "Enter the code sent by SMS to your phone. If it did not arrive or expired, ask for a new one.",
+        "title": "Enter the SMS code",
+        "data_description": {
+          "resend": "Tick this and submit to get a new SMS code instead of entering one."
+        }
+      },
+      "user": {
+        "data": {
+          "mobile_phone": "Mobile phone",
+          "v_number": "Vehicle number"
+        },
+        "description": "Enter the mobile phone number and vehicle number you use in the Chery Connect app. An SMS code will be sent to this phone.",
+        "title": "Connect your Chery",
+        "data_description": {
+          "mobile_phone": "For example 050-1234567 or +972 50 123 4567.",
+          "v_number": "The licence plate number, with or without dashes."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in again",
+        "description": "The Chery Connect login for vehicle {v_number} has expired. Submit to receive a new SMS code on the phone number already configured."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Refresh interval (minutes)"
+        },
+        "description": "How often to refresh the vehicle data. Minimum 5 minutes.",
+        "title": "Chery Connect options"
+      }
+    }
+  }
+}

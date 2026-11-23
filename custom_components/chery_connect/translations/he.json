@@ -1,1 +1,56 @@
-{"config":{"abort":{"already_configured":"רכב זה כבר הוגדר."},"error":{"blocked":"השרת סירב להתחברות. בדוק את מספר הטלפון ומספר הרכב.","cannot_connect":"לא ניתן להתחבר לשירות Chery Connect. בדוק את החיבור ונסה שוב.","invalid_otp":"הקוד נדחה. בקש קוד חדש ונסה שוב.","unknown":"אירעה שגיאה לא ידועה."},"step":{"otp":{"data":{"code":"קוד SMS"},"description":"הזן את הקוד שנשלח אליך ב-SMS.","title":"הזנת קוד SMS"},"user":{"data":{"mobile_phone":"טלפון נייד","v_number":"מספר רכב"},"description":"הזן את מספר הטלפון ומספר הרכב שבהם אתה משתמש באפליקציית Chery Connect. קוד SMS יישלח לטלפון הזה.","title":"חיבור הרכב"}}},"options":{"step":{"init":{"data":{"scan_interval":"מרווח רענון (דקות)"},"description":"כל כמה זמן לרענן את נתוני הרכב. מינימום 5 דקות.","title":"אפשרויות Chery Connect"}}}}
+{
+  "config": {
+    "abort": {
+      "already_configured": "רכב זה כבר הוגדר.",
+      "reauth_successful": "האימות מחדש הצליח.",
+      "unique_id_mismatch": "ההתחברות הזו שייכת לרכב אחר מזה שהוגדר."
+    },
+    "error": {
+      "blocked": "השרת סירב להתחברות. בדוק את מספר הטלפון ומספר הרכב.",
+      "cannot_connect": "לא ניתן להתחבר לשירות Chery Connect. בדוק את החיבור ונסה שוב.",
+      "invalid_otp": "הקוד נדחה. בקש קוד חדש ונסה שוב.",
+      "unknown": "אירעה שגיאה לא ידועה.",
+      "invalid_input": "הזן מספר טלפון ומספר רכב תקינים."
+    },
+    "step": {
+      "otp": {
+        "data": {
+          "code": "קוד SMS",
+          "resend": "שלח קוד חדש"
+        },
+        "description": "הזן את הקוד שנשלח אליך ב-SMS. אם הוא לא הגיע או שפג תוקפו, בקש קוד חדש.",
+        "title": "הזנת קוד SMS",
+        "data_description": {
+          "resend": "סמן ושלח כדי לקבל קוד SMS חדש במקום להזין קוד."
+        }
+      },
+      "user": {
+        "data": {
+          "mobile_phone": "טלפון נייד",
+          "v_number": "מספר רכב"
+        },
+        "description": "הזן את מספר הטלפון ומספר הרכב שבהם אתה משתמש באפליקציית Chery Connect. קוד SMS יישלח לטלפון הזה.",
+        "title": "חיבור הרכב",
+        "data_description": {
+          "mobile_phone": "לדוגמה 050-1234567 או ‎+972 50 123 4567.",
+          "v_number": "מספר לוחית הרישוי, עם או בלי מקפים."
+        }
+      },
+      "reauth_confirm": {
+        "title": "התחברות מחדש",
+        "description": "ההתחברות ל-Chery Connect עבור רכב {v_number} פגה. שלח כדי לקבל קוד SMS חדש למספר הטלפון שכבר הוגדר."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "מרווח רענון (דקות)"
+        },
+        "description": "כל כמה זמן לרענן את נתוני הרכב. מינימום 5 דקות.",
+        "title": "אפשרויות Chery Connect"
+      }
+    }
+  }
+}
