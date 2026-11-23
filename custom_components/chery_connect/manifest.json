@@ -1,0 +1,1 @@
+{"codeowners":["@ziv-daniel"],"config_flow":true,"dependencies":[],"documentation":"https://github.com/ziv-daniel/hass-chery-connect-il","domain":"chery_connect","iot_class":"cloud_polling","issue_tracker":"https://github.com/ziv-daniel/hass-chery-connect-il/issues","name":"Chery Connect","version":"0.1.0"}
