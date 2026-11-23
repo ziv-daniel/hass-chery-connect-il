@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime, time
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -12,6 +13,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
     UnitOfElectricPotential,
@@ -20,7 +22,6 @@ from homeassistant.const import (
     UnitOfSpeed,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
@@ -60,7 +61,7 @@ def _parse_date(value: Any) -> datetime | None:
     date = dt_util.parse_date(value)
     if date is None:
         return None
-    return datetime.combine(date, time.min, tzinfo=timezone.utc)
+    return datetime.combine(date, time.min, tzinfo=UTC)
 
 
 SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (

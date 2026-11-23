@@ -1,4 +1,18 @@
 __pycache__/
 *.py[cod]
-.pytest_cache/
 *.egg-info/
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+# Local HA config and captured app traffic can contain tokens
+config/
+secrets.yaml
+*.har

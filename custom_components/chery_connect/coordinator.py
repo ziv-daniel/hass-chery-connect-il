@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -24,11 +23,11 @@ def _parse_gps_time(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -76,6 +75,7 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Raises:
             ConfigEntryAuthFailed: When the token is rejected (HTTP 401).
             UpdateFailed: For any other API or network failure.
+
         """
         try:
             vehicle = await self.api.get_vehicle_info()

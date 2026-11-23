@@ -42,3 +42,20 @@ needs a GitHub token — see the HACS documentation for custom repositories.
 - One vehicle per config entry in v1 (the app itself supports up to 8).
 - `IMPLEMENTATION_NOTES.md` lists what was deliberately left out and what
   still needs a live login test.
+
+## Development
+
+Requires Python 3.14 (same as Home Assistant 2026.10).
+
+```bash
+python3.14 -m venv .venv && . .venv/bin/activate
+pip install -r requirements_test.txt
+pytest                       # Home Assistant test harness
+ruff check . && ruff format --check .   # Home Assistant core lint rules
+```
+
+Validate the manifest and translations with hassfest:
+
+```bash
+docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
+```

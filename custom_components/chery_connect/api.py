@@ -10,6 +10,7 @@ with a new OTP. Never log the token, phone number or plate number.
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 from typing import Any
 
 import aiohttp
@@ -50,7 +51,7 @@ def parse_float(value: Any) -> float | None:
         return None
     try:
         return float(str(value).strip().replace(",", ""))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -88,56 +89,49 @@ class CheryConnectApiClient:
             headers["Authorization"] = f"Bearer {self._token}"
         return headers
 
-    async def _post(
-        self, endpoint: str, data: dict[str, Any] | None = None, *, auth: bool = True
+    @staticmethod
+    def _check_status(resp: aiohttp.ClientResponse, endpoint: str) -> None:
+        """Raise for a non-200 status; 401 means the token is dead."""
+        if resp.status == HTTPStatus.UNAUTHORIZED:
+            raise InvalidAuthError("Token rejected by the server")
+        if resp.status != HTTPStatus.OK:
+            raise CheryApiError(f"Request to {endpoint} failed with HTTP {resp.status}")
+
+    async def _request(
+        self,
+        method: str,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        *,
+        auth: bool = True,
     ) -> dict[str, Any]:
-        """POST {API}{endpoint} with a JSON body, return the parsed JSON."""
+        """Send a request to {API}{endpoint} and return the parsed JSON object."""
         url = f"{API_BASE_URL}{endpoint}"
         try:
-            async with self._session.post(
+            async with self._session.request(
+                method,
                 url,
-                json=data or {},
+                json=data if method == "POST" else None,
                 headers=self._headers(auth=auth),
                 timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
             ) as resp:
-                if resp.status == 401:
-                    raise InvalidAuthError("Token rejected by the server")
-                if resp.status != 200:
-                    raise CheryApiError(
-                        f"Request to {endpoint} failed with HTTP {resp.status}"
-                    )
+                self._check_status(resp, endpoint)
                 payload = await resp.json(content_type=None)
-        except (InvalidAuthError, CheryApiError):
-            raise
         except (aiohttp.ClientError, TimeoutError) as err:
             raise CheryApiError(f"Request to {endpoint} failed: {err}") from err
         if not isinstance(payload, dict):
             raise CheryApiError(f"Unexpected response from {endpoint}")
         return payload
 
+    async def _post(
+        self, endpoint: str, data: dict[str, Any] | None = None, *, auth: bool = True
+    ) -> dict[str, Any]:
+        """POST a JSON body."""
+        return await self._request("POST", endpoint, data or {}, auth=auth)
+
     async def _get(self, endpoint: str) -> dict[str, Any]:
-        """GET {API}{endpoint} with the Bearer token."""
-        url = f"{API_BASE_URL}{endpoint}"
-        try:
-            async with self._session.get(
-                url,
-                headers=self._headers(auth=True),
-                timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
-            ) as resp:
-                if resp.status == 401:
-                    raise InvalidAuthError("Token rejected by the server")
-                if resp.status != 200:
-                    raise CheryApiError(
-                        f"Request to {endpoint} failed with HTTP {resp.status}"
-                    )
-                payload = await resp.json(content_type=None)
-        except (InvalidAuthError, CheryApiError):
-            raise
-        except (aiohttp.ClientError, TimeoutError) as err:
-            raise CheryApiError(f"Request to {endpoint} failed: {err}") from err
-        if not isinstance(payload, dict):
-            raise CheryApiError(f"Unexpected response from {endpoint}")
-        return payload
+        """GET with the Bearer token."""
+        return await self._request("GET", endpoint)
 
     async def request_otp(self, mobile_phone: str, v_number: str) -> dict[str, Any]:
         """Ask the server to send an SMS OTP.
@@ -155,9 +149,7 @@ class CheryConnectApiClient:
             raise BlockedError("Login refused by the server")
         return payload
 
-    async def check_otp(
-        self, mobile_phone: str, v_number: str, code: str
-    ) -> str:
+    async def check_otp(self, mobile_phone: str, v_number: str, code: str) -> str:
         """Exchange the SMS code for a Bearer token and return it.
 
         The app treats the login as successful only when the returned
