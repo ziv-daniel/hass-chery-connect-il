@@ -4,13 +4,22 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Runs on Ziv's self-hosted homelab runner pool (GitHub-hosted minutes are
+# billing-blocked). PRs from forks fall back to GitHub-hosted runners so
+# untrusted code never reaches the shared pool.
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -26,14 +35,14 @@ jobs:
       - run: pytest --cov=custom_components.chery_connect --cov-report=term-missing
 
   hassfest:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 10
     steps:
       - uses: hacs/action@main
