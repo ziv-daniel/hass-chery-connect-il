@@ -1,6 +1,8 @@
 """Tests for the Chery Connect config, reauth and options flows."""
 
+from collections.abc import Generator
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_USER
@@ -27,6 +29,20 @@ from .const import CODE, NEW_TOKEN, OTHER_V_NUMBER, PHONE, TOKEN, V_NUMBER
 OTP_URL = f"{API_BASE_URL}login/otp"
 OTP_CHECK_URL = f"{API_BASE_URL}login/otpCheck"
 USER_INPUT = {CONF_MOBILE_PHONE: PHONE, CONF_V_NUMBER: V_NUMBER}
+
+
+@pytest.fixture(autouse=True)
+def mock_setup_entry() -> Generator[AsyncMock]:
+    """Keep flow tests from setting up the integration.
+
+    A finished flow (create or reauth reload) would otherwise set up the
+    platforms in the background, racing the test teardown and leaving the
+    legacy device_tracker timer behind.
+    """
+    with patch(
+        "custom_components.chery_connect.async_setup_entry", return_value=True
+    ) as mock:
+        yield mock
 
 
 def _mock_login(aioclient_mock: AiohttpClientMocker, token: str = NEW_TOKEN) -> None:

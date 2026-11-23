@@ -4,37 +4,51 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Runs on Ziv's self-hosted homelab runner pool (GitHub-hosted minutes are
+# billing-blocked). PRs from forks fall back to GitHub-hosted runners so
+# untrusted code never reaches the shared pool.
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # setup-python has no 3.14 build for the pool's Ubuntu 20.04 base;
+      # uv's standalone Python builds are distro-independent.
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.14"
-          cache: pip
-          cache-dependency-path: requirements_test.txt
-      - run: pip install -r requirements_test.txt
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: requirements_test.txt
+      - run: uv pip install -r requirements_test.txt
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy custom_components
       - run: pytest --cov=custom_components.chery_connect --cov-report=term-missing
 
   hassfest:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 10
+    # HACS validation fails while the repo is private; don't block CI on it.
+    continue-on-error: true
     steps:
       - uses: hacs/action@main
         with:
