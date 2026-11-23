@@ -1,0 +1,58 @@
+{
+  "entity": {
+    "sensor": {
+      "odometer": {
+        "default": "mdi:counter"
+      },
+      "fuel_level": {
+        "default": "mdi:gas-station"
+      },
+      "range": {
+        "default": "mdi:map-marker-distance"
+      },
+      "battery_voltage": {
+        "default": "mdi:car-battery"
+      },
+      "speed": {
+        "default": "mdi:speedometer"
+      },
+      "electric_range": {
+        "default": "mdi:ev-station"
+      },
+      "tyre_pressure_front_left": {
+        "default": "mdi:car-tire-alert"
+      },
+      "tyre_pressure_front_right": {
+        "default": "mdi:car-tire-alert"
+      },
+      "tyre_pressure_rear_left": {
+        "default": "mdi:car-tire-alert"
+      },
+      "tyre_pressure_rear_right": {
+        "default": "mdi:car-tire-alert"
+      },
+      "next_service": {
+        "default": "mdi:car-wrench"
+      },
+      "insurance_date": {
+        "default": "mdi:shield-car"
+      },
+      "licence_date": {
+        "default": "mdi:card-account-details"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "default": "mdi:ev-plug-type2"
+      },
+      "engine_on": {
+        "default": "mdi:engine"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "default": "mdi:car"
+      }
+    }
+  }
+}

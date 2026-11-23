@@ -13,6 +13,12 @@ Polls the same API the Chery Connect app (v1.5.5) uses and exposes:
 - **Binary sensors:** charging, engine on
 - **Device tracker:** vehicle location, address, GPS time, speed, direction
 
+Only entities for fields your car reports are created (a petrol car gets no
+charging or electric-range entity). Voltage, tyre pressures and the dates
+are diagnostic entities; the speed sensor is disabled by default (the
+tracker carries speed as an attribute). Names are translated (English,
+Hebrew).
+
 ## Login
 
 Add the integration in Home Assistant, enter the mobile phone number and
@@ -52,6 +58,7 @@ python3.14 -m venv .venv && . .venv/bin/activate
 pip install -r requirements_test.txt
 pytest                       # Home Assistant test harness
 ruff check . && ruff format --check .   # Home Assistant core lint rules
+mypy custom_components       # strict typing
 ```
 
 Validate the manifest and translations with hassfest:

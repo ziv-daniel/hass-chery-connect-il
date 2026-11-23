@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -9,8 +11,18 @@ from .const import DOMAIN
 from .coordinator import CheryConnectCoordinator
 
 
+def has_value(data: dict[str, Any], source: str) -> bool:
+    """Return True when the vehicle reports the field at all.
+
+    Used at setup so a petrol car gets no charging or electric-range entity.
+    """
+    return data.get(source) not in (None, "")
+
+
 class CheryConnectEntity(CoordinatorEntity[CheryConnectCoordinator]):
     """Base entity: one device per vehicle, keyed by the config entry."""
+
+    _attr_has_entity_name = True
 
     def __init__(self, coordinator: CheryConnectCoordinator, key: str) -> None:
         """Initialize the entity."""

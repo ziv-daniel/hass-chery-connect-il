@@ -13,6 +13,9 @@ from .api import parse_float
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
 from .entity import CheryConnectEntity
 
+# The coordinator does all fetching; entities never poll on their own.
+PARALLEL_UPDATES = 0
+
 
 class CheryConnectDeviceTracker(CheryConnectEntity, TrackerEntity):
     """Vehicle location from lastLocation.
@@ -20,7 +23,7 @@ class CheryConnectDeviceTracker(CheryConnectEntity, TrackerEntity):
     Note the API's own typo: the longitude field is ``Longtitude``.
     """
 
-    _attr_name = "Location"
+    _attr_translation_key = "location"
 
     def __init__(self, coordinator: CheryConnectCoordinator) -> None:
         """Initialize the tracker."""

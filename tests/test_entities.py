@@ -3,18 +3,24 @@
 from typing import Any
 
 import pytest
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT
+from freezegun.api import FrozenDateTimeFactory
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_UNIT_OF_MEASUREMENT,
+    EntityCategory,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
+    async_fire_time_changed,
     load_json_object_fixture,
 )
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
     AiohttpClientMocker,
 )
 
-from custom_components.chery_connect.const import API_BASE_URL
+from custom_components.chery_connect.const import API_BASE_URL, DEFAULT_SCAN_INTERVAL
 
 from .const import V_NUMBER
 
@@ -61,7 +67,7 @@ async def test_entity_state(
 async def test_entity_set_is_complete(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
-    """No entity is created that the expectations do not cover."""
+    """No enabled entity is created that the expectations do not cover."""
     created = {
         state.entity_id
         for state in hass.states.async_all()
@@ -70,18 +76,49 @@ async def test_entity_set_is_complete(
     assert created == set(EXPECTED)
 
 
-async def test_missing_fields_are_unknown(
+async def test_only_reported_fields_create_entities(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     aioclient_mock: AiohttpClientMocker,
 ) -> None:
-    """An empty payload leaves every entity unknown, with stable unique ids."""
+    """An empty payload creates only the tracker, with a stable unique id."""
     await _setup_with(hass, mock_config_entry, aioclient_mock, {}, {})
 
-    for entity_id in EXPECTED:
-        # Without VehicleModel the device, and so the entity ids, use "chery".
-        fallback_id = entity_id.replace("chery_tiggo_8_pro", "chery")
-        assert hass.states.get(fallback_id).state == "unknown", fallback_id
+    created = [s.entity_id for s in hass.states.async_all() if "chery" in s.entity_id]
+    assert created == ["device_tracker.chery_location"]
+    assert hass.states.get("device_tracker.chery_location").state == "unknown"
+
+
+async def test_electric_fields_create_entities(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A vehicle that reports an electric range gets that sensor."""
+    vehicle_info["ElectricBatteryKM"] = "55"
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    assert hass.states.get("sensor.chery_tiggo_8_pro_electric_range").state == "55.0"
+
+
+async def test_entity_metadata(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Names come from translations; diagnostics and speed are categorised."""
+    odometer = hass.states.get("sensor.chery_tiggo_8_pro_odometer")
+    assert odometer.attributes["friendly_name"] == "Chery Tiggo 8 Pro Odometer"
+    tyre = entity_registry.async_get(
+        "sensor.chery_tiggo_8_pro_tyre_pressure_front_left"
+    )
+    assert tyre.entity_category is EntityCategory.DIAGNOSTIC
+    assert tyre.translation_key == "tyre_pressure_front_left"
+    speed = entity_registry.async_get("sensor.chery_tiggo_8_pro_speed")
+    assert speed.disabled_by is er.RegistryEntryDisabler.INTEGRATION
 
 
 @pytest.mark.parametrize(
@@ -141,3 +178,22 @@ async def test_field_parsing(
         hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
     )
     assert hass.states.get(entity_id).state == expected
+
+
+async def test_fields_dropped_later_become_unknown(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Entities created at setup go unknown when a later poll omits the field."""
+    aioclient_mock.clear_requests()
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json={})
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json={})
+
+    freezer.tick(DEFAULT_SCAN_INTERVAL)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    for entity_id in EXPECTED:
+        assert hass.states.get(entity_id).state == "unknown", entity_id
