@@ -1,0 +1,104 @@
+"""Tests for merging VehicleInfo with lastLocation."""
+
+from typing import Any
+
+import pytest
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMocker,
+)
+
+from custom_components.chery_connect.const import API_BASE_URL
+
+from .const import TOKEN
+
+
+@pytest.mark.parametrize(
+    ("vehicle_time", "location_time", "expected_lat", "expected_time"),
+    [
+        pytest.param(
+            "2026-11-23T10:00:00",
+            "2026-11-23T10:05:00",
+            "32.0850",
+            "2026-11-23T10:05:00",
+            id="location_newer",
+        ),
+        pytest.param(
+            "2026-11-23T10:10:00",
+            "2026-11-23T10:05:00",
+            "32.0800",
+            "2026-11-23T10:10:00",
+            id="location_older",
+        ),
+        pytest.param(
+            None,
+            "2026-11-23T10:05:00",
+            "32.0850",
+            "2026-11-23T10:05:00",
+            id="no_vehicle_time",
+        ),
+        pytest.param(
+            "2026-11-23T10:00:00",
+            None,
+            "32.0800",
+            "2026-11-23T10:00:00",
+            id="no_location_time",
+        ),
+        pytest.param(
+            "2026-11-23T10:00:00Z",
+            "2026-11-23T12:01:00+02:00",
+            "32.0850",
+            "2026-11-23T12:01:00+02:00",
+            id="mixed_offsets",
+        ),
+        pytest.param("garbage-a", "garbage-b", "32.0850", "garbage-b", id="unparsable"),
+        pytest.param(1700000000, 1700000100, "32.0850", 1700000100, id="not_a_string"),
+    ],
+)
+async def test_location_overlay(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+    vehicle_time: str | int | None,
+    location_time: str | int | None,
+    expected_lat: str,
+    expected_time: str | int | None,
+) -> None:
+    """LastLocation fields win only when its GPS time is strictly newer."""
+    vehicle_info["GPSDatetime"] = vehicle_time
+    last_location["GPSDatetime"] = location_time
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=vehicle_info)
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    data = mock_config_entry.runtime_data.data
+    assert data["Latitude"] == expected_lat
+    assert data["GPSDatetime"] == expected_time
+    assert data["Odometer"] == "12,345"
+    assert mock_config_entry.runtime_data.api.token == TOKEN
+
+
+async def test_naive_gps_time_is_israel_local(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A naive 11:30 is 09:30 UTC in winter, so it is older than 10:00 UTC."""
+    vehicle_info["GPSDatetime"] = "2026-11-23T10:00:00Z"
+    last_location["GPSDatetime"] = "2026-11-23T11:30:00"
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=vehicle_info)
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert mock_config_entry.runtime_data.data["Latitude"] == vehicle_info["Latitude"]

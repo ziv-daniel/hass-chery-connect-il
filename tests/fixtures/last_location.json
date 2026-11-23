@@ -1,0 +1,10 @@
+{
+  "Latitude": "32.0850",
+  "Longtitude": "34.7810",
+  "Speed": "42",
+  "Direction": "180",
+  "InputVoltage": "13.9",
+  "InputVoltageStatus": "1",
+  "InputVoltageStatusText": "OK",
+  "GPSDatetime": "2026-11-23T10:05:00"
+}

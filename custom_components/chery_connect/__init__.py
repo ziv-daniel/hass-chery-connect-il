@@ -2,25 +2,21 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import timedelta
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import CheryConnectApiClient, InvalidAuthError
+from .api import CheryApiError, CheryConnectApiClient, InvalidAuthError
 from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
     MIN_SCAN_INTERVAL,
 )
-from .coordinator import CheryConnectCoordinator
-
-_LOGGER = logging.getLogger(__name__)
+from .coordinator import CheryConfigEntry, CheryConnectCoordinator
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -29,66 +25,43 @@ PLATFORMS: list[Platform] = [
 ]
 
 
-def _scan_interval(entry: ConfigEntry) -> timedelta:
+def _scan_interval(entry: CheryConfigEntry) -> timedelta:
     """Return the configured scan interval, clamped to the 5-minute floor."""
-    minutes = entry.options.get(
-        CONF_SCAN_INTERVAL,
-        int(DEFAULT_SCAN_INTERVAL.total_seconds() // 60),
-    )
+    default = int(DEFAULT_SCAN_INTERVAL.total_seconds() // 60)
     try:
-        minutes_int = int(minutes)
+        minutes = int(entry.options.get(CONF_SCAN_INTERVAL, default))
     except TypeError, ValueError:
-        minutes_int = int(DEFAULT_SCAN_INTERVAL.total_seconds() // 60)
+        minutes = default
     floor = int(MIN_SCAN_INTERVAL.total_seconds() // 60)
-    return timedelta(minutes=max(minutes_int, floor))
+    return timedelta(minutes=max(minutes, floor))
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> bool:
     """Set up Chery Connect from a config entry."""
-    session = async_get_clientsession(hass)
-    api = CheryConnectApiClient(session, entry.data.get(CONF_TOKEN))
+    api = CheryConnectApiClient(async_get_clientsession(hass), entry.data[CONF_TOKEN])
 
-    # Validate the stored token up front, like the app's TestToken call.
-    # A dead token raises InvalidAuthError here and HA starts the reauth
-    # flow instead of loading entities that can never update.
+    # The app has no refresh token: a rejected token can only be fixed by reauth.
     try:
         await api.test_token()
-    except InvalidAuthError:
-        _LOGGER.warning("Stored Chery Connect token rejected; reauth required")
-        raise
-    except Exception as err:  # noqa: BLE001 - a failed check must not block setup
-        _LOGGER.warning("Chery Connect token check failed: %s", err)
+    except InvalidAuthError as err:
+        raise ConfigEntryAuthFailed("Chery Connect token rejected") from err
+    except CheryApiError as err:
+        raise ConfigEntryNotReady(f"Chery Connect is unreachable: {err}") from err
 
     coordinator = CheryConnectCoordinator(hass, api, entry, _scan_interval(entry))
-
-    # async_refresh (not async_config_entry_first_refresh): a failed first
-    # fetch should degrade to unavailable entities, not leave the entry in
-    # setup_retry with nothing loaded.
-    await coordinator.async_refresh()
-    if not coordinator.last_update_success:
-        _LOGGER.warning(
-            "Initial Chery Connect fetch failed; entities will report "
-            "unavailable until the next successful update"
-        )
-
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
+    await coordinator.async_config_entry_first_refresh()
+    entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
-
-    _LOGGER.info("Chery Connect set up")
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_reload_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> None:
     """Reload the config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)

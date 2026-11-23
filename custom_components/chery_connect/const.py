@@ -16,6 +16,9 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 API_BASE_URL: Final = "https://iot.pointer4u.co.il/iservices/carassoApp/api/"
 APPID: Final = 34
 API_TIMEOUT: Final = 15
+# The service is Israeli and sends GPS times without an offset; treat them
+# as local Israeli time (unverified against a live payload, see issue #2).
+API_TIME_ZONE: Final = "Asia/Jerusalem"
 
 # Polling: default 10 minutes, hard floor 5 minutes, max 60 minutes.
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=10)
