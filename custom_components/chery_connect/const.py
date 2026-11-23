@@ -11,11 +11,20 @@ CONF_V_NUMBER: Final = "v_number"
 CONF_TOKEN: Final = "token"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 
+# Config flow form fields (not stored in the entry).
+CONF_CODE: Final = "code"
+CONF_RESEND: Final = "resend"
+
+# Israeli numbers may be typed as +972 5x...; the app sends 05x...
+IL_COUNTRY_CODE: Final = "972"
+
 # API configuration — verified from Chery Connect v1.5.5 app.js.
 # See CHERY_API_CONTRACT.md in the workspace (not shipped in the repo).
 API_BASE_URL: Final = "https://iot.pointer4u.co.il/iservices/carassoApp/api/"
 APPID: Final = 34
 API_TIMEOUT: Final = 15
+# The app accepts a login only when the returned token is longer than this.
+MIN_TOKEN_LENGTH: Final = 10
 # The service is Israeli and sends GPS times without an offset; treat them
 # as local Israeli time (unverified against a live payload, see issue #2).
 API_TIME_ZONE: Final = "Asia/Jerusalem"
@@ -47,4 +56,5 @@ LOCATION_OVERLAY_FIELDS: Final = (
 ERROR_CANNOT_CONNECT: Final = "cannot_connect"
 ERROR_INVALID_OTP: Final = "invalid_otp"
 ERROR_BLOCKED: Final = "blocked"
+ERROR_INVALID_INPUT: Final = "invalid_input"
 ERROR_UNKNOWN: Final = "unknown"
