@@ -18,6 +18,10 @@ CONF_RESEND: Final = "resend"
 # Israeli numbers may be typed as +972 5x...; the app sends 05x...
 IL_COUNTRY_CODE: Final = "972"
 
+# The entry title shows only the plate's last digits (titles end up in
+# screenshots and bug reports).
+VISIBLE_PLATE_DIGITS: Final = 3
+
 # API configuration — verified from Chery Connect v1.5.5 app.js.
 # See CHERY_API_CONTRACT.md in the workspace (not shipped in the repo).
 API_BASE_URL: Final = "https://iot.pointer4u.co.il/iservices/carassoApp/api/"

@@ -1,7 +1,12 @@
 # hass-chery-connect-il
 
 Home Assistant custom integration for **Chery Connect** (Carasso / Pointer)
-— vehicle telemetry via owner OTP login. Read-only, v1.
+— vehicle telemetry via owner OTP login. Read-only.
+
+> **Unofficial.** Not affiliated with Chery, Carasso or Pointer. This
+> integration uses the app's private API, which may change or break at any
+> time, and using it may be against the provider's terms. Use at your own
+> risk.
 
 ## What it does
 
@@ -41,13 +46,38 @@ This repository is **private**. Installing a private repository in HACS
 needs a GitHub token — see the HACS documentation for custom repositories.
 (This step is unverified; it has not been tested yet.)
 
+## Troubleshooting
+
+- **Re-authentication requested:** the server rejected the stored token.
+  Open the notification, press submit and enter the new SMS code. Phone
+  and vehicle cannot change here; to switch car, remove and re-add the
+  integration.
+- **Didn't get the SMS:** on the code step tick "Send a new code" and
+  submit.
+- **Bug reports:** attach the integration's diagnostics (device page →
+  ⋮ → Download diagnostics). Token, phone, plate, coordinates and address
+  are redacted. Please don't paste raw logs or app traffic captures; they
+  contain your token.
+- **Debug logging:**
+
+  ```yaml
+  logger:
+    logs:
+      custom_components.chery_connect: debug
+  ```
+
+## Removal
+
+Settings → Devices & services → Chery Connect → ⋮ → Delete. This removes
+the stored token. Then remove the files (or the HACS repository).
+
 ## Notes
 
 - Read-only: the API exposes no remote commands (lock/unlock/start), so
   none are implemented.
-- One vehicle per config entry in v1 (the app itself supports up to 8).
-- `IMPLEMENTATION_NOTES.md` lists what was deliberately left out and what
-  still needs a live login test.
+- One vehicle per config entry (the app itself supports up to 8).
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) lists what was deliberately
+  left out and what still needs a live login test.
 
 ## Development
 

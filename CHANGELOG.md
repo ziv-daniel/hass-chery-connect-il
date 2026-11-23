@@ -1,0 +1,25 @@
+# Changelog
+
+## 0.2.0 (unreleased)
+
+### Fixed
+- An expired token now opens re-authentication instead of failing setup.
+- Unique ids and the device no longer break when the first update fails.
+- Service, insurance and licence dates no longer crash; they are date sensors.
+- HTML or invalid JSON responses are reported as connection errors.
+- Re-authentication asks before sending an SMS and cannot switch vehicle.
+
+### Added
+- "Send a new code" on the SMS step; phone and plate normalisation.
+- Translated entity names (English, Hebrew) and icons.
+- Diagnostics download with token, phone, plate and location redacted.
+- Test suite, CI workflow, security policy.
+
+### Changed
+- Only entities for fields the vehicle reports are created.
+- Voltage, tyre and date sensors are diagnostic; speed is disabled by default.
+- Sensors no longer carry the address and GPS time (the tracker does).
+- New entries are titled with a masked plate.
+
+## 0.1.0
+- First version: sensors, binary sensors and device tracker over OTP login.
