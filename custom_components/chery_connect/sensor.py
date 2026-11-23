@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, time
+from datetime import date
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -13,7 +13,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
     UnitOfElectricPotential,
@@ -22,12 +21,11 @@ from homeassistant.const import (
     UnitOfSpeed,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .api import parse_float, parse_odometer
-from .const import DOMAIN
-from .coordinator import CheryConnectCoordinator
+from .coordinator import CheryConfigEntry, CheryConnectCoordinator
 from .entity import CheryConnectEntity
 
 
@@ -51,17 +49,17 @@ def _range_from_fuel_desc(data: dict[str, Any]) -> float | None:
     return parse_float(desc.split()[0])
 
 
-def _parse_date(value: Any) -> datetime | None:
-    """Parse a date/datetime string from the API into an aware datetime."""
+def _parse_date(value: Any) -> date | None:
+    """Parse an API date ("2027-03-15" or "2027-03-15T00:00:00") to a date.
+
+    The API sends calendar dates without a timezone; a TIMESTAMP sensor
+    rejects naive datetimes, so these are DATE sensors.
+    """
     if not isinstance(value, str) or not value:
         return None
-    parsed = dt_util.parse_datetime(value)
-    if parsed is not None:
-        return parsed
-    date = dt_util.parse_date(value)
-    if date is None:
-        return None
-    return datetime.combine(date, time.min, tzinfo=UTC)
+    if (parsed := dt_util.parse_datetime(value)) is not None:
+        return parsed.date()
+    return dt_util.parse_date(value)
 
 
 SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
@@ -147,19 +145,19 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
     CherySensorDescription(
         key="next_service",
         name="Next service",
-        device_class=SensorDeviceClass.TIMESTAMP,
+        device_class=SensorDeviceClass.DATE,
         value_fn=lambda data: _parse_date(data.get("NextTreatmentDate")),
     ),
     CherySensorDescription(
         key="insurance_date",
         name="Insurance date",
-        device_class=SensorDeviceClass.TIMESTAMP,
+        device_class=SensorDeviceClass.DATE,
         value_fn=lambda data: _parse_date(data.get("InsureDate")),
     ),
     CherySensorDescription(
         key="licence_date",
         name="Licence date",
-        device_class=SensorDeviceClass.TIMESTAMP,
+        device_class=SensorDeviceClass.DATE,
         value_fn=lambda data: _parse_date(data.get("LicensingDate")),
     ),
 )
@@ -167,6 +165,8 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
 
 class CheryConnectSensor(CheryConnectEntity, SensorEntity):
     """A Chery Connect sensor."""
+
+    entity_description: CherySensorDescription
 
     def __init__(
         self,
@@ -176,7 +176,6 @@ class CheryConnectSensor(CheryConnectEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator, description.key)
         self.entity_description = description
-        self._attr_name = description.name
 
     @property
     def native_value(self) -> Any:
@@ -195,13 +194,11 @@ class CheryConnectSensor(CheryConnectEntity, SensorEntity):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    entry: CheryConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Chery Connect sensors from a config entry."""
-    coordinator: CheryConnectCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator = entry.runtime_data
     async_add_entities(
         CheryConnectSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS

@@ -7,16 +7,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import CheryConnectCoordinator
+from .coordinator import CheryConfigEntry, CheryConnectCoordinator
 from .entity import CheryConnectEntity
 
 
@@ -62,6 +60,8 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[CheryBinarySensorDescription, ...] = (
 class CheryConnectBinarySensor(CheryConnectEntity, BinarySensorEntity):
     """A Chery Connect binary sensor."""
 
+    entity_description: CheryBinarySensorDescription
+
     def __init__(
         self,
         coordinator: CheryConnectCoordinator,
@@ -70,7 +70,6 @@ class CheryConnectBinarySensor(CheryConnectEntity, BinarySensorEntity):
         """Initialize the binary sensor."""
         super().__init__(coordinator, description.key)
         self.entity_description = description
-        self._attr_name = description.name
 
     @property
     def is_on(self) -> bool | None:
@@ -80,13 +79,11 @@ class CheryConnectBinarySensor(CheryConnectEntity, BinarySensorEntity):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    entry: CheryConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Chery Connect binary sensors from a config entry."""
-    coordinator: CheryConnectCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator = entry.runtime_data
     async_add_entities(
         CheryConnectBinarySensor(coordinator, description)
         for description in BINARY_SENSOR_DESCRIPTIONS

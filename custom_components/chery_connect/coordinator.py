@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timedelta
 from typing import Any
 
-import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import CheryApiError, CheryConnectApiClient, InvalidAuthError
-from .const import DOMAIN, LOCATION_OVERLAY_FIELDS
+from .const import API_TIME_ZONE, DOMAIN, LOCATION_OVERLAY_FIELDS
 
 _LOGGER = logging.getLogger(__name__)
 
+type CheryConfigEntry = ConfigEntry[CheryConnectCoordinator]
+
 
 def _parse_gps_time(value: Any) -> datetime | None:
-    """Parse a GPSDatetime string, else None."""
+    """Parse a GPSDatetime string, else None; naive times are API-local."""
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -27,7 +29,7 @@ def _parse_gps_time(value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
+        parsed = parsed.replace(tzinfo=dt_util.get_time_zone(API_TIME_ZONE))
     return parsed
 
 
@@ -52,22 +54,24 @@ def _is_newer(new_value: Any, old_value: Any) -> bool:
 class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch VehicleInfo + lastLocation on an interval."""
 
+    config_entry: CheryConfigEntry
+
     def __init__(
         self,
         hass: HomeAssistant,
         api: CheryConnectApiClient,
-        entry: ConfigEntry,
-        update_interval,
+        entry: CheryConfigEntry,
+        update_interval: timedelta,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=DOMAIN,
             update_interval=update_interval,
         )
         self.api = api
-        self.entry = entry
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch fresh data from the API.
@@ -82,7 +86,7 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             location = await self.api.get_last_location()
         except InvalidAuthError as err:
             raise ConfigEntryAuthFailed("Chery Connect token rejected") from err
-        except (CheryApiError, aiohttp.ClientError) as err:
+        except CheryApiError as err:
             raise UpdateFailed(f"Failed to fetch Chery data: {err}") from err
 
         merged: dict[str, Any] = dict(vehicle)

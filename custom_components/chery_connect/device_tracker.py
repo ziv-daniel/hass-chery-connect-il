@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.device_tracker import SourceType, TrackerEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.device_tracker.const import SourceType
+from homeassistant.components.device_tracker.entity import TrackerEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import parse_float
-from .const import DOMAIN
-from .coordinator import CheryConnectCoordinator
+from .coordinator import CheryConfigEntry, CheryConnectCoordinator
 from .entity import CheryConnectEntity
 
 
@@ -56,11 +55,9 @@ class CheryConnectDeviceTracker(CheryConnectEntity, TrackerEntity):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    entry: CheryConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Chery Connect device tracker from a config entry."""
-    coordinator: CheryConnectCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator = entry.runtime_data
     async_add_entities([CheryConnectDeviceTracker(coordinator)])

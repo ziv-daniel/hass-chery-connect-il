@@ -119,6 +119,9 @@ class CheryConnectApiClient:
                 payload = await resp.json(content_type=None)
         except (aiohttp.ClientError, TimeoutError) as err:
             raise CheryApiError(f"Request to {endpoint} failed: {err}") from err
+        except ValueError as err:
+            # An HTML maintenance or WAF page instead of JSON.
+            raise CheryApiError(f"Invalid JSON from {endpoint}") from err
         if not isinstance(payload, dict):
             raise CheryApiError(f"Unexpected response from {endpoint}")
         return payload

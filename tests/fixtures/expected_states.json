@@ -1,0 +1,84 @@
+{
+  "binary_sensor.chery_tiggo_8_pro_charging": {
+    "device_class": "battery_charging",
+    "state": "off",
+    "unit": null
+  },
+  "binary_sensor.chery_tiggo_8_pro_engine_on": {
+    "device_class": "running",
+    "state": "off",
+    "unit": null
+  },
+  "device_tracker.chery_tiggo_8_pro_location": {
+    "device_class": null,
+    "latitude": 32.085,
+    "longitude": 34.781,
+    "state": "not_home",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_12v_battery_voltage": {
+    "device_class": "voltage",
+    "state": "13.9",
+    "unit": "V"
+  },
+  "sensor.chery_tiggo_8_pro_electric_range": {
+    "device_class": "distance",
+    "state": "unknown",
+    "unit": "km"
+  },
+  "sensor.chery_tiggo_8_pro_fuel_level": {
+    "device_class": null,
+    "state": "62.0",
+    "unit": "%"
+  },
+  "sensor.chery_tiggo_8_pro_insurance_date": {
+    "device_class": "date",
+    "state": "2027-01-01",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_licence_date": {
+    "device_class": "date",
+    "state": "2027-06-30",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_next_service": {
+    "device_class": "date",
+    "state": "2027-03-15",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_odometer": {
+    "device_class": "distance",
+    "state": "12345.0",
+    "unit": "km"
+  },
+  "sensor.chery_tiggo_8_pro_range": {
+    "device_class": "distance",
+    "state": "480.0",
+    "unit": "km"
+  },
+  "sensor.chery_tiggo_8_pro_speed": {
+    "device_class": "speed",
+    "state": "42.0",
+    "unit": "km/h"
+  },
+  "sensor.chery_tiggo_8_pro_tyre_pressure_front_left": {
+    "device_class": "pressure",
+    "state": "241.316495",
+    "unit": "kPa"
+  },
+  "sensor.chery_tiggo_8_pro_tyre_pressure_front_right": {
+    "device_class": "pressure",
+    "state": "244.7638735",
+    "unit": "kPa"
+  },
+  "sensor.chery_tiggo_8_pro_tyre_pressure_rear_left": {
+    "device_class": "pressure",
+    "state": "234.421738",
+    "unit": "kPa"
+  },
+  "sensor.chery_tiggo_8_pro_tyre_pressure_rear_right": {
+    "device_class": "pressure",
+    "state": "237.8691165",
+    "unit": "kPa"
+  }
+}
