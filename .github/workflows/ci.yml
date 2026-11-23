@@ -23,12 +23,15 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # setup-python has no 3.14 build for the pool's Ubuntu 20.04 base;
+      # uv's standalone Python builds are distro-independent.
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.14"
-          cache: pip
-          cache-dependency-path: requirements_test.txt
-      - run: pip install -r requirements_test.txt
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: requirements_test.txt
+      - run: uv pip install -r requirements_test.txt
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy custom_components
