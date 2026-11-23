@@ -12,7 +12,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
@@ -34,7 +33,6 @@ from .const import (
     ERROR_BLOCKED,
     ERROR_CANNOT_CONNECT,
     ERROR_INVALID_OTP,
-    ERROR_UNKNOWN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
@@ -148,9 +146,7 @@ class CheryConnectConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> FlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Start reauthentication when the token is rejected."""
         self._reauth_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]

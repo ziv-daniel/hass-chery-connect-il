@@ -1,186 +1,165 @@
-"""Tests for the Chery Connect API client (no network, no HA needed).
+"""Tests for the Chery Connect API client."""
 
-Run with: python3 -m unittest discover -s tests -v
-The client only needs a session object with async-context-manager
-``post``/``get`` methods, so the tests use small fakes. Neither
-``homeassistant`` nor ``aiohttp`` is installed in this VM, so the test
-loads ``const``/``api`` directly (bypassing the package ``__init__``,
-which imports Home Assistant) and stubs ``aiohttp`` with the two
-names the client touches (``ClientTimeout``, ``ClientError``).
-"""
+import pytest
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMocker,
+)
 
-import importlib.util
-import sys
-import types
-import unittest
-from pathlib import Path
+from custom_components.chery_connect.api import (
+    BlockedError,
+    CheryApiError,
+    CheryConnectApiClient,
+    InvalidAuthError,
+    InvalidOtpError,
+    parse_float,
+    parse_odometer,
+)
+from custom_components.chery_connect.const import API_BASE_URL
 
-_COMPONENTS = Path(__file__).resolve().parents[1] / "custom_components" / "chery_connect"
-
-if "aiohttp" not in sys.modules:
-    _aiohttp_stub = types.ModuleType("aiohttp")
-
-    class _ClientTimeout:
-        def __init__(self, total=None):
-            self.total = total
-
-    class _ClientError(Exception):
-        pass
-
-    _aiohttp_stub.ClientTimeout = _ClientTimeout
-    _aiohttp_stub.ClientError = _ClientError
-    sys.modules["aiohttp"] = _aiohttp_stub
-
-_pkg = types.ModuleType("chery_connect")
-_pkg.__path__ = [str(_COMPONENTS)]
-sys.modules["chery_connect"] = _pkg
+TOKEN = "t" * 20
 
 
-def _load_submodule(name):
-    spec = importlib.util.spec_from_file_location(
-        f"chery_connect.{name}", _COMPONENTS / f"{name}.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[f"chery_connect.{name}"] = module
-    spec.loader.exec_module(module)
-    return module
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("12,345", 12345.0, id="commas"),
+        pytest.param("12345", 12345.0, id="plain"),
+        pytest.param(12345, 12345.0, id="int"),
+        pytest.param(" 88.5 ", 88.5, id="padded"),
+        pytest.param(None, None, id="none"),
+        pytest.param("", None, id="empty"),
+        pytest.param("abc", None, id="text"),
+    ],
+)
+def test_parse_float(value: object, expected: float | None) -> None:
+    """Numbers arrive as strings with thousands separators."""
+    assert parse_float(value) == expected
+    assert parse_odometer(value) == expected
 
 
-_load_submodule("const")
-_api = _load_submodule("api")
+async def test_request_otp_payload(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """login/otp posts phone, vehicle and appid without a token."""
+    aioclient_mock.post(f"{API_BASE_URL}login/otp", json={"res": "ok", "rescode": 1})
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
 
-BlockedError = _api.BlockedError
-CheryConnectApiClient = _api.CheryConnectApiClient
-InvalidAuthError = _api.InvalidAuthError
-InvalidOtpError = _api.InvalidOtpError
-parse_float = _api.parse_float
-parse_odometer = _api.parse_odometer
+    payload = await client.request_otp("0500000000", "1234567")
 
-
-class _FakeResponse:
-    """Minimal stand-in for an aiohttp response."""
-
-    def __init__(self, status, payload):
-        self.status = status
-        self._payload = payload
-
-    async def json(self, content_type=None):
-        return self._payload
+    assert payload["rescode"] == 1
+    _, _, body, headers = aioclient_mock.mock_calls[0]
+    assert body == {"MobilePhone": "0500000000", "VNumber": "1234567", "appid": 34}
+    assert "Authorization" not in headers
 
 
-class _FakeContextManager:
-    """Async context manager wrapping a fake response."""
+async def test_request_otp_blocked(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Rescode -2 means the server refused the login."""
+    aioclient_mock.post(f"{API_BASE_URL}login/otp", json={"res": "no", "rescode": -2})
+    client = CheryConnectApiClient(async_get_clientsession(hass))
 
-    def __init__(self, response):
-        self._response = response
-
-    async def __aenter__(self):
-        return self._response
-
-    async def __aexit__(self, *exc):
-        return False
+    with pytest.raises(BlockedError):
+        await client.request_otp("0500000000", "1234567")
 
 
-class _FakeSession:
-    """Fake aiohttp session recording the last request."""
+async def test_check_otp_returns_token(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A long token is accepted and kept on the client."""
+    aioclient_mock.post(f"{API_BASE_URL}login/otpCheck", json={"token": TOKEN})
+    client = CheryConnectApiClient(async_get_clientsession(hass))
 
-    def __init__(self):
-        self.calls = []
-        self.next_response = _FakeResponse(200, {})
-
-    def post(self, url, json=None, headers=None, timeout=None):
-        self.calls.append(("POST", url, json, headers))
-        return _FakeContextManager(self.next_response)
-
-    def get(self, url, headers=None, timeout=None):
-        self.calls.append(("GET", url, None, headers))
-        return _FakeContextManager(self.next_response)
+    assert await client.check_otp("0500000000", "1234567", "123456") == TOKEN
+    assert client.token == TOKEN
+    _, _, body, _ = aioclient_mock.mock_calls[0]
+    assert body == {"MobilePhone": "0500000000", "VNumber": "1234567", "Code": "123456"}
 
 
-class TestParsing(unittest.TestCase):
-    """Odometer / float parsing matches the app's behaviour."""
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param({"token": "short"}, id="short"),
+        pytest.param({"token": None}, id="null"),
+        pytest.param({}, id="missing"),
+    ],
+)
+async def test_check_otp_rejected(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, payload: dict
+) -> None:
+    """The app only accepts tokens longer than 10 characters."""
+    aioclient_mock.post(f"{API_BASE_URL}login/otpCheck", json=payload)
+    client = CheryConnectApiClient(async_get_clientsession(hass))
 
-    def test_parse_odometer_with_commas(self):
-        self.assertEqual(parse_odometer("12,345"), 12345.0)
-
-    def test_parse_odometer_plain(self):
-        self.assertEqual(parse_odometer("12345"), 12345.0)
-
-    def test_parse_float_none_and_empty(self):
-        self.assertIsNone(parse_float(None))
-        self.assertIsNone(parse_float(""))
-        self.assertIsNone(parse_float("abc"))
-
-    def test_parse_float_string(self):
-        self.assertEqual(parse_float("88.5"), 88.5)
-
-
-class TestApiClient(unittest.IsolatedAsyncioTestCase):
-    """OTP flow, auth errors and request shapes."""
-
-    async def test_request_otp_payload(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(200, {"res": "ok", "rescode": 1})
-        client = CheryConnectApiClient(session)
-        payload = await client.request_otp("0500000000", "12-345-67")
-        self.assertEqual(payload["rescode"], 1)
-        method, url, body, headers = session.calls[0]
-        self.assertEqual(method, "POST")
-        self.assertTrue(url.endswith("login/otp"))
-        self.assertEqual(body["appid"], 34)
-        self.assertEqual(body["MobilePhone"], "0500000000")
-        self.assertEqual(body["VNumber"], "12-345-67")
-        self.assertNotIn("Authorization", headers)
-
-    async def test_request_otp_blocked(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(200, {"res": "no", "rescode": -2})
-        client = CheryConnectApiClient(session)
-        with self.assertRaises(BlockedError):
-            await client.request_otp("0500000000", "12-345-67")
-
-    async def test_check_otp_returns_token(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(
-            200, {"token": "a" * 20, "resText": "ok"}
-        )
-        client = CheryConnectApiClient(session)
-        token = await client.check_otp("0500000000", "12-345-67", "123456")
-        self.assertEqual(token, "a" * 20)
-        self.assertEqual(client.token, "a" * 20)
-
-    async def test_check_otp_short_token_rejected(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(200, {"token": "short"})
-        client = CheryConnectApiClient(session)
-        with self.assertRaises(InvalidOtpError):
-            await client.check_otp("0500000000", "12-345-67", "123456")
-
-    async def test_401_raises_invalid_auth(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(401, {})
-        client = CheryConnectApiClient(session, token="x" * 20)
-        with self.assertRaises(InvalidAuthError):
-            await client.get_vehicle_info()
-
-    async def test_bearer_header_sent(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(200, {"Odometer": "1,000"})
-        client = CheryConnectApiClient(session, token="t" * 20)
-        data = await client.get_vehicle_info()
-        self.assertEqual(data["Odometer"], "1,000")
-        _, _, _, headers = session.calls[0]
-        self.assertEqual(headers["Authorization"], "Bearer " + "t" * 20)
-
-    async def test_test_token_uses_get(self):
-        session = _FakeSession()
-        session.next_response = _FakeResponse(200, {})
-        client = CheryConnectApiClient(session, token="t" * 20)
-        self.assertTrue(await client.test_token())
-        method, url, _, _ = session.calls[0]
-        self.assertEqual(method, "GET")
-        self.assertTrue(url.endswith("TestToken"))
+    with pytest.raises(InvalidOtpError):
+        await client.check_otp("0500000000", "1234567", "123456")
 
 
-if __name__ == "__main__":
-    unittest.main()
+async def test_bearer_header_and_payload(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Data calls send the Bearer token and return the JSON body."""
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json={"Odometer": "1,000"})
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json={"Latitude": "32.1"})
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    assert await client.get_vehicle_info() == {"Odometer": "1,000"}
+    assert await client.get_last_location() == {"Latitude": "32.1"}
+    for call in aioclient_mock.mock_calls:
+        assert call[3]["Authorization"] == f"Bearer {TOKEN}"
+
+
+async def test_test_token_uses_get(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """TestToken is a GET."""
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    assert await client.test_token() is True
+    assert aioclient_mock.mock_calls[0][0] == "GET"
+
+
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        pytest.param(401, InvalidAuthError, id="401"),
+        pytest.param(500, CheryApiError, id="500"),
+    ],
+)
+async def test_http_errors(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    status: int,
+    error: type[Exception],
+) -> None:
+    """401 means a dead token; other statuses are API errors."""
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", status=status)
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    with pytest.raises(error):
+        await client.get_vehicle_info()
+
+
+async def test_timeout_is_api_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Network timeouts are wrapped in CheryApiError."""
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", exc=TimeoutError)
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    with pytest.raises(CheryApiError):
+        await client.get_vehicle_info()
+
+
+async def test_non_dict_payload(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A JSON list instead of an object is rejected."""
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=[1, 2])
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    with pytest.raises(CheryApiError):
+        await client.get_vehicle_info()

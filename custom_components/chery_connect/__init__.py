@@ -37,7 +37,7 @@ def _scan_interval(entry: ConfigEntry) -> timedelta:
     )
     try:
         minutes_int = int(minutes)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         minutes_int = int(DEFAULT_SCAN_INTERVAL.total_seconds() // 60)
     floor = int(MIN_SCAN_INTERVAL.total_seconds() // 60)
     return timedelta(minutes=max(minutes_int, floor))
