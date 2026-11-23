@@ -52,5 +52,61 @@
         "title": "אפשרויות Chery Connect"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "odometer": {
+        "name": "מד מרחק"
+      },
+      "fuel_level": {
+        "name": "מפלס דלק"
+      },
+      "range": {
+        "name": "טווח נסיעה"
+      },
+      "battery_voltage": {
+        "name": "מתח מצבר 12V"
+      },
+      "speed": {
+        "name": "מהירות"
+      },
+      "electric_range": {
+        "name": "טווח חשמלי"
+      },
+      "tyre_pressure_front_left": {
+        "name": "לחץ צמיג קדמי שמאלי"
+      },
+      "tyre_pressure_front_right": {
+        "name": "לחץ צמיג קדמי ימני"
+      },
+      "tyre_pressure_rear_left": {
+        "name": "לחץ צמיג אחורי שמאלי"
+      },
+      "tyre_pressure_rear_right": {
+        "name": "לחץ צמיג אחורי ימני"
+      },
+      "next_service": {
+        "name": "טיפול הבא"
+      },
+      "insurance_date": {
+        "name": "תאריך ביטוח"
+      },
+      "licence_date": {
+        "name": "תאריך רישוי"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "בטעינה"
+      },
+      "engine_on": {
+        "name": "מנוע פועל"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "מיקום"
+      }
+    }
   }
 }

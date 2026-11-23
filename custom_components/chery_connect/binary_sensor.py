@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
@@ -15,44 +13,34 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity
+from .entity import CheryConnectEntity, has_value
+
+# The coordinator does all fetching; entities never poll on their own.
+PARALLEL_UPDATES = 0
 
 
 @dataclass(frozen=True, kw_only=True)
 class CheryBinarySensorDescription(BinarySensorEntityDescription):
-    """Binary sensor description with a value extractor."""
+    """Binary sensor description: the VehicleInfo field and its "on" values."""
 
-    value_fn: Callable[[dict[str, Any]], bool | None]
-
-
-def _is_charging(data: dict[str, Any]) -> bool | None:
-    """Return True while the car reports ElectricChargeStatus == 1."""
-    value = data.get("ElectricChargeStatus")
-    if value is None:
-        return None
-    return str(value) == "1"
-
-
-def _is_engine_on(data: dict[str, Any]) -> bool | None:
-    """Return True while the car reports the engine on."""
-    value = data.get("EngineOn")
-    if value is None:
-        return None
-    return str(value) in ("1", "True", "true")
+    source: str
+    on_values: frozenset[str]
 
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[CheryBinarySensorDescription, ...] = (
     CheryBinarySensorDescription(
         key="charging",
-        name="Charging",
+        translation_key="charging",
+        source="ElectricChargeStatus",
+        on_values=frozenset({"1"}),
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
-        value_fn=_is_charging,
     ),
     CheryBinarySensorDescription(
         key="engine_on",
-        name="Engine on",
+        translation_key="engine_on",
+        source="EngineOn",
+        on_values=frozenset({"1", "True", "true"}),
         device_class=BinarySensorDeviceClass.RUNNING,
-        value_fn=_is_engine_on,
     ),
 )
 
@@ -73,8 +61,11 @@ class CheryConnectBinarySensor(CheryConnectEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool | None:
-        """Return the binary sensor state."""
-        return self.entity_description.value_fn(self.coordinator.data or {})
+        """Return True when the field holds one of the "on" values."""
+        value = (self.coordinator.data or {}).get(self.entity_description.source)
+        if value is None:
+            return None
+        return str(value) in self.entity_description.on_values
 
 
 async def async_setup_entry(
@@ -82,9 +73,11 @@ async def async_setup_entry(
     entry: CheryConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up Chery Connect binary sensors from a config entry."""
+    """Set up the binary sensors for the fields this vehicle reports."""
     coordinator = entry.runtime_data
+    data = coordinator.data or {}
     async_add_entities(
         CheryConnectBinarySensor(coordinator, description)
         for description in BINARY_SENSOR_DESCRIPTIONS
+        if has_value(data, description.source)
     )

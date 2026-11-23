@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     PERCENTAGE,
+    EntityCategory,
     UnitOfElectricPotential,
     UnitOfLength,
     UnitOfPressure,
@@ -26,24 +27,27 @@ from homeassistant.util import dt as dt_util
 
 from .api import parse_float, parse_odometer
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity
+from .entity import CheryConnectEntity, has_value
+
+# The coordinator does all fetching; entities never poll on their own.
+PARALLEL_UPDATES = 0
 
 
 @dataclass(frozen=True, kw_only=True)
 class CherySensorDescription(SensorEntityDescription):
-    """Sensor description with a value extractor over VehicleInfo data."""
+    """Sensor description: the VehicleInfo field and how to parse it."""
 
-    value_fn: Callable[[dict[str, Any]], Any]
+    source: str
+    value_fn: Callable[[Any], Any] = parse_float
 
 
-def _range_from_fuel_desc(data: dict[str, Any]) -> float | None:
+def _range_from_fuel_desc(desc: Any) -> float | None:
     """Range (km) from the first word of FualLevelDesc.
 
     UNVERIFIED for CheryTheme: the app derives kmToGo this way only
     under ``"NissanTheme"===PATH_THEME``. If the text does not start
     with a number, this returns None and the sensor is unknown.
     """
-    desc = data.get("FualLevelDesc")
     if not isinstance(desc, str) or not desc:
         return None
     return parse_float(desc.split()[0])
@@ -62,25 +66,52 @@ def _parse_date(value: Any) -> date | None:
     return dt_util.parse_date(value)
 
 
+def _tyre(key: str, source: str) -> CherySensorDescription:
+    """Return a tyre pressure description (PSI as the app shows it)."""
+    return CherySensorDescription(
+        key=key,
+        translation_key=key,
+        source=source,
+        device_class=SensorDeviceClass.PRESSURE,
+        native_unit_of_measurement=UnitOfPressure.PSI,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    )
+
+
+def _date(key: str, source: str) -> CherySensorDescription:
+    """Return a calendar-date description (service, insurance, licence)."""
+    return CherySensorDescription(
+        key=key,
+        translation_key=key,
+        source=source,
+        device_class=SensorDeviceClass.DATE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_parse_date,
+    )
+
+
 SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
     CherySensorDescription(
         key="odometer",
-        name="Odometer",
+        translation_key="odometer",
+        source="Odometer",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: parse_odometer(data.get("Odometer")),
+        value_fn=parse_odometer,
     ),
     CherySensorDescription(
         key="fuel_level",
-        name="Fuel level",
+        translation_key="fuel_level",
+        source="FualLevel",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("FualLevel")),
     ),
     CherySensorDescription(
         key="range",
-        name="Range",
+        translation_key="range",
+        source="FualLevelDesc",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.MEASUREMENT,
@@ -88,78 +119,38 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
     ),
     CherySensorDescription(
         key="battery_voltage",
-        name="12V battery voltage",
+        translation_key="battery_voltage",
+        source="InputVoltage",
         device_class=SensorDeviceClass.VOLTAGE,
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("InputVoltage")),
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     CherySensorDescription(
         key="speed",
-        name="Speed",
+        translation_key="speed",
+        source="Speed",
         device_class=SensorDeviceClass.SPEED,
         native_unit_of_measurement=UnitOfSpeed.KILOMETERS_PER_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("Speed")),
+        # Only fresh while driving; the tracker carries it as an attribute.
+        entity_registry_enabled_default=False,
     ),
     CherySensorDescription(
         key="electric_range",
-        name="Electric range",
+        translation_key="electric_range",
+        source="ElectricBatteryKM",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("ElectricBatteryKM")),
     ),
-    CherySensorDescription(
-        key="tyre_pressure_front_left",
-        name="Tyre pressure front left",
-        device_class=SensorDeviceClass.PRESSURE,
-        native_unit_of_measurement=UnitOfPressure.PSI,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("Frontlefttyrepressure")),
-    ),
-    CherySensorDescription(
-        key="tyre_pressure_front_right",
-        name="Tyre pressure front right",
-        device_class=SensorDeviceClass.PRESSURE,
-        native_unit_of_measurement=UnitOfPressure.PSI,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("Frontrighttyrepressure")),
-    ),
-    CherySensorDescription(
-        key="tyre_pressure_rear_left",
-        name="Tyre pressure rear left",
-        device_class=SensorDeviceClass.PRESSURE,
-        native_unit_of_measurement=UnitOfPressure.PSI,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("Rearlefttyrepressure")),
-    ),
-    CherySensorDescription(
-        key="tyre_pressure_rear_right",
-        name="Tyre pressure rear right",
-        device_class=SensorDeviceClass.PRESSURE,
-        native_unit_of_measurement=UnitOfPressure.PSI,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: parse_float(data.get("Rearrighttyrepressure")),
-    ),
-    CherySensorDescription(
-        key="next_service",
-        name="Next service",
-        device_class=SensorDeviceClass.DATE,
-        value_fn=lambda data: _parse_date(data.get("NextTreatmentDate")),
-    ),
-    CherySensorDescription(
-        key="insurance_date",
-        name="Insurance date",
-        device_class=SensorDeviceClass.DATE,
-        value_fn=lambda data: _parse_date(data.get("InsureDate")),
-    ),
-    CherySensorDescription(
-        key="licence_date",
-        name="Licence date",
-        device_class=SensorDeviceClass.DATE,
-        value_fn=lambda data: _parse_date(data.get("LicensingDate")),
-    ),
+    _tyre("tyre_pressure_front_left", "Frontlefttyrepressure"),
+    _tyre("tyre_pressure_front_right", "Frontrighttyrepressure"),
+    _tyre("tyre_pressure_rear_left", "Rearlefttyrepressure"),
+    _tyre("tyre_pressure_rear_right", "Rearrighttyrepressure"),
+    _date("next_service", "NextTreatmentDate"),
+    _date("insurance_date", "InsureDate"),
+    _date("licence_date", "LicensingDate"),
 )
 
 
@@ -179,17 +170,11 @@ class CheryConnectSensor(CheryConnectEntity, SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        """Return the sensor value from the latest coordinator data."""
-        return self.entity_description.value_fn(self.coordinator.data or {})
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the GPS time and address for context."""
+        """Return the parsed field from the latest coordinator data."""
         data = self.coordinator.data or {}
-        return {
-            "gps_datetime": data.get("GPSDatetime"),
-            "address": data.get("Address"),
-        }
+        return self.entity_description.value_fn(
+            data.get(self.entity_description.source)
+        )
 
 
 async def async_setup_entry(
@@ -197,9 +182,11 @@ async def async_setup_entry(
     entry: CheryConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up Chery Connect sensors from a config entry."""
+    """Set up the sensors for the fields this vehicle reports."""
     coordinator = entry.runtime_data
+    data = coordinator.data or {}
     async_add_entities(
         CheryConnectSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS
+        if has_value(data, description.source)
     )

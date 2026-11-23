@@ -52,5 +52,61 @@
         "title": "Chery Connect options"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "odometer": {
+        "name": "Odometer"
+      },
+      "fuel_level": {
+        "name": "Fuel level"
+      },
+      "range": {
+        "name": "Range"
+      },
+      "battery_voltage": {
+        "name": "12V battery voltage"
+      },
+      "speed": {
+        "name": "Speed"
+      },
+      "electric_range": {
+        "name": "Electric range"
+      },
+      "tyre_pressure_front_left": {
+        "name": "Tyre pressure front left"
+      },
+      "tyre_pressure_front_right": {
+        "name": "Tyre pressure front right"
+      },
+      "tyre_pressure_rear_left": {
+        "name": "Tyre pressure rear left"
+      },
+      "tyre_pressure_rear_right": {
+        "name": "Tyre pressure rear right"
+      },
+      "next_service": {
+        "name": "Next service"
+      },
+      "insurance_date": {
+        "name": "Insurance date"
+      },
+      "licence_date": {
+        "name": "Licence date"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "Charging"
+      },
+      "engine_on": {
+        "name": "Engine on"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Location"
+      }
+    }
   }
 }

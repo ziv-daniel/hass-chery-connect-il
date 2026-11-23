@@ -22,6 +22,7 @@ jobs:
       - run: pip install -r requirements_test.txt
       - run: ruff check .
       - run: ruff format --check .
+      - run: mypy custom_components
       - run: pytest --cov=custom_components.chery_connect --cov-report=term-missing
 
   hassfest:
