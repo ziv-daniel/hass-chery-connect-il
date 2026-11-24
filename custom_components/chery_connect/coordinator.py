@@ -11,7 +11,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import CheryApiError, CheryConnectApiClient, InvalidAuthError, parse_api_time
+from .api import (
+    CheryApiError,
+    CheryConnectApiClient,
+    InvalidAuthError,
+    parse_api_time,
+    parse_float,
+)
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CHARGING_ON_VALUES,
@@ -46,9 +52,15 @@ def _is_newer(new_value: Any, old_value: Any) -> bool:
 
 
 def is_active(data: dict[str, Any]) -> bool:
-    """Return True while the engine runs or the car charges."""
+    """Return True while the car moves, its engine runs or it charges.
+
+    A plug-in hybrid driving on electricity reports EngineOn off, so speed
+    counts as driving too.
+    """
+    speed = parse_float(data.get("Speed"))
     return (
-        str(data.get("EngineOn")) in ENGINE_ON_VALUES
+        (speed is not None and speed > 0)
+        or str(data.get("EngineOn")) in ENGINE_ON_VALUES
         or str(data.get("ElectricChargeStatus")) in CHARGING_ON_VALUES
     )
 

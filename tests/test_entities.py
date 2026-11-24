@@ -359,15 +359,31 @@ async def test_tyre_pressure_low_attributes(
     assert attributes["max_difference"] == 2.0
 
 
-async def test_no_recommendation_no_tyre_low_entity(
+async def test_no_recommendation_tyre_low_unknown(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     aioclient_mock: AiohttpClientMocker,
     vehicle_info: dict[str, Any],
     last_location: dict[str, Any],
 ) -> None:
-    """Without PSI_FRONT the vehicle gets no tyre-low entity."""
+    """Without PSI_FRONT the tyre-low entity exists and shows unknown."""
     del vehicle_info["PSI_FRONT"]
+    del vehicle_info["PSI_BACK"]
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    assert hass.states.get(TYRE_LOW).state == "unknown"
+
+
+async def test_no_tyre_readings_no_tyre_low_entity(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A vehicle without tyre sensors gets no tyre-low entity."""
+    del vehicle_info["Frontlefttyrepressure"]
     await _setup_with(
         hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
     )
@@ -427,3 +443,41 @@ async def test_tyre_low_hides_negative_recommendation(
     attributes = hass.states.get(TYRE_LOW).attributes
     assert attributes["recommended_front"] is None
     assert attributes["recommended_rear"] == 36.0
+
+
+async def test_field_reported_later_creates_entity(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A field missing at setup (car asleep) adds its entities on a later refresh.
+
+    The charge status text is empty while unplugged, but the EV battery level
+    now has a value, so both entities appear, and only once.
+    """
+    status = "sensor.chery_tiggo_8_pro_charge_status"
+    battery = "sensor.chery_tiggo_8_pro_ev_battery"
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    assert hass.states.get(status) is None
+    assert hass.states.get(battery) is None
+
+    awake = dict(
+        vehicle_info, ElectricBatteryStatus="80", ElectricBatteryChargeStatusText=""
+    )
+    for _ in range(2):
+        aioclient_mock.clear_requests()
+        aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=awake)
+        aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+        freezer.tick(DEFAULT_SCAN_INTERVAL)
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done()
+
+    assert hass.states.get(status).state == "unknown"
+    assert hass.states.get(battery).state == "80.0"
+    sensors = hass.states.async_entity_ids("sensor")
+    assert len(sensors) == len(set(sensors))

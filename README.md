@@ -39,8 +39,8 @@ Copy `custom_components/chery_connect` into your Home Assistant
 
 Each vehicle is a separate entry. To change the refresh interval (default
 10 minutes, 5–60), open the integration's **Configure** options. While the
-engine runs or the car charges, the integration refreshes every minute
-instead, so drives and charging show up. Distance, trip, messages and driver
+car moves, its engine runs or it charges, the integration refreshes every
+minute instead, so drives (electric ones too) and charging show up. Distance, trip, messages and driver
 alerts change slowly and are fetched every 30 minutes.
 
 ## Entities

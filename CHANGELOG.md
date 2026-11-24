@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0b2 (2026-11-24, beta)
+
+### Fixed
+- Faster refresh now also starts when the car moves. A plug-in hybrid
+  driving on electricity reports the engine as off, so the minute refresh
+  never started on electric drives.
+- Charge status and tyre pressure low are created even when they have no
+  value yet, and show unknown until they do. The charge status is empty
+  while unplugged and the server may have no recommended tyre pressure, so
+  both used to be missing. Entities whose fields are missing at startup
+  (car asleep) are added on the first refresh that sends them.
+
 ## 0.3.0b1 (2026-11-24, beta)
 
 ### Added
