@@ -6,13 +6,14 @@ from collections.abc import Callable, Iterable
 from typing import Any, Protocol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import CheryConnectCoordinator
+from .coordinator import CheryConnectCoordinator, is_electric
 
 
 class FieldDescription(Protocol):
@@ -26,6 +27,10 @@ class FieldDescription(Protocol):
     def presence(self) -> str | None:
         """The field that must have a value, when not ``source``."""
 
+    @property
+    def electric(self) -> bool:
+        """True for battery and charging data, real only on electric cars."""
+
 
 def creates_entity(data: dict[str, Any], description: FieldDescription) -> bool:
     """Return True when the vehicle should get the entity of ``description``.
@@ -33,8 +38,44 @@ def creates_entity(data: dict[str, Any], description: FieldDescription) -> bool:
     ``presence`` (default ``source``) is the field that must have a value. A
     field that is empty while idle, like the charge status text, points it at
     a field that always has one, so the entity exists and shows unknown.
+    Battery and charging entities also need a car the server treats as
+    electric: the others get fixed placeholder values.
     """
+    if description.electric and not is_electric(data):
+        return False
     return has_value(data, description.presence or description.source)
+
+
+class KeyedDescription(FieldDescription, Protocol):
+    """A field description with the key its unique_id is built from."""
+
+    @property
+    def key(self) -> str:
+        """The entity key."""
+
+
+def async_remove_placeholder_entities(
+    hass: HomeAssistant,
+    coordinator: CheryConnectCoordinator,
+    domain: str,
+    descriptions: Iterable[KeyedDescription],
+) -> None:
+    """Remove battery and charging entities of a car that is not electric.
+
+    Up to 0.3.0b2 they were created from the placeholder values, so a plug-in
+    hybrid showed a fixed 88 % battery that never charged.
+    """
+    if is_electric(coordinator.data or {}):
+        return
+    registry = er.async_get(hass)
+    vehicle_id = coordinator.config_entry.unique_id
+    for description in descriptions:
+        if not description.electric:
+            continue
+        unique_id = f"{vehicle_id}_{description.key}"
+        entity_id = registry.async_get_entity_id(domain, DOMAIN, unique_id)
+        if entity_id is not None:
+            registry.async_remove(entity_id)
 
 
 def has_value(data: dict[str, Any], source: str) -> bool:

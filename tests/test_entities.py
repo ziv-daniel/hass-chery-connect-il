@@ -23,6 +23,8 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
 from custom_components.chery_connect.const import (
     API_BASE_URL,
     DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    ELECTRIC_DESIGN_FIELD,
 )
 from custom_components.chery_connect.sensor import (
     _EXTRA_SOURCES,
@@ -30,7 +32,13 @@ from custom_components.chery_connect.sensor import (
     _voltage,
 )
 
-from .const import V_NUMBER
+from .const import (
+    CHARGING,
+    ELECTRIC_ENTITY_IDS,
+    ELECTRIC_REGISTRY_KEYS,
+    PLACEHOLDER_ELECTRIC_FIELDS,
+    V_NUMBER,
+)
 
 EXPECTED = load_json_object_fixture("expected_states.json")
 # Unique-id suffixes of the sensors fed by the extra endpoints.
@@ -132,7 +140,8 @@ async def test_electric_fields_create_entities(
     vehicle_info: dict[str, Any],
     last_location: dict[str, Any],
 ) -> None:
-    """A vehicle that reports an electric range gets that sensor."""
+    """An electric vehicle that reports an electric range gets that sensor."""
+    vehicle_info[ELECTRIC_DESIGN_FIELD] = "1"
     vehicle_info["ElectricBatteryKM"] = "55"
     await _setup_with(
         hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
@@ -180,13 +189,6 @@ async def test_entity_metadata(
             "sensor.chery_tiggo_8_pro_range",
             "unknown",
             id="range_without_number",
-        ),
-        pytest.param(
-            "ElectricChargeStatus",
-            1,
-            "binary_sensor.chery_tiggo_8_pro_charging",
-            "on",
-            id="charging",
         ),
         pytest.param(
             "EngineOn",
@@ -397,7 +399,9 @@ async def test_ev_battery_and_charge_status(
     vehicle_info: dict[str, Any],
     last_location: dict[str, Any],
 ) -> None:
-    """A plug-in car gets the EV battery level and the charge status text."""
+    """An electric car gets the EV battery level and the charge status text."""
+    vehicle_info[ELECTRIC_DESIGN_FIELD] = "1"
+    vehicle_info["ElectricChargeStatus"] = 1
     vehicle_info["ElectricBatteryStatus"] = "64"
     vehicle_info["ElectricBatteryChargeStatusText"] = " Charging "
     await _setup_with(
@@ -409,6 +413,51 @@ async def test_ev_battery_and_charge_status(
     assert battery.attributes[ATTR_UNIT_OF_MEASUREMENT] == "%"
     status = hass.states.get("sensor.chery_tiggo_8_pro_charge_status")
     assert status.state == "Charging"
+    assert hass.states.get(CHARGING).state == "on"
+
+
+async def test_placeholder_electric_fields_create_no_entities(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """ElectricDesign 0 (e.g. Tiggo 8 PHEV) means placeholder Electric* values.
+
+    The live car sent 88 % and 160 km all day while the real battery was at
+    35 % and charging, so none of them may become an entity.
+    """
+    vehicle_info.update(PLACEHOLDER_ELECTRIC_FIELDS)
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    for entity_id in ELECTRIC_ENTITY_IDS:
+        assert hass.states.get(entity_id) is None, entity_id
+
+
+async def test_placeholder_electric_entities_removed(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    entity_registry: er.EntityRegistry,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """Entities 0.3.0b2 created from placeholder values leave the registry."""
+    mock_config_entry.add_to_hass(hass)
+    for domain, key in ELECTRIC_REGISTRY_KEYS:
+        entity_registry.async_get_or_create(
+            domain, DOMAIN, f"{V_NUMBER}_{key}", config_entry=mock_config_entry
+        )
+    vehicle_info.update(PLACEHOLDER_ELECTRIC_FIELDS)
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    for domain, key in ELECTRIC_REGISTRY_KEYS:
+        unique_id = f"{V_NUMBER}_{key}"
+        assert entity_registry.async_get_entity_id(domain, DOMAIN, unique_id) is None
+    assert hass.states.get("sensor.chery_tiggo_8_pro_odometer") is not None
 
 
 @pytest.mark.parametrize(
@@ -467,7 +516,10 @@ async def test_field_reported_later_creates_entity(
     assert hass.states.get(battery) is None
 
     awake = dict(
-        vehicle_info, ElectricBatteryStatus="80", ElectricBatteryChargeStatusText=""
+        vehicle_info,
+        **{ELECTRIC_DESIGN_FIELD: "1"},
+        ElectricBatteryStatus="80",
+        ElectricBatteryChargeStatusText="",
     )
     for _ in range(2):
         aioclient_mock.clear_requests()

@@ -55,7 +55,11 @@ alerts change slowly and are fetched every 30 minutes.
 ¹ Disabled by default. ² Diagnostic entity.
 
 Entities are created only for the fields your car reports, so a petrol car
-has no charging or electric range entity. The UI is in English and Hebrew.
+has no charging or electric range entity. Electric range, EV battery, charge
+status and charging exist only for cars the server treats as electric (the
+ones the app shows a battery screen for). For other cars, including the
+Tiggo 8 PHEV, the server sends fixed placeholder values (88 %, 160 km, never
+charging), so they are left out. The UI is in English and Hebrew.
 There are no remote commands (lock, start), because the API doesn't offer any.
 
 - **Tyre pressure low** is on when any tyre is below the recommended

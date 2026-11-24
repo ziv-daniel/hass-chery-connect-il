@@ -63,6 +63,12 @@ MY_CAR_TAB_DRIVING_EVENTS: Final = 4
 ENGINE_ON_VALUES: Final = frozenset({"1", "True", "true"})
 CHARGING_ON_VALUES: Final = frozenset({"1"})
 
+# The app shows its battery and charging screen only for these ElectricDesign
+# values. Other cars, a Tiggo 8 PHEV included (0), get fixed placeholder
+# values in the Electric* fields (88 %, 160 km, never charging).
+ELECTRIC_DESIGN_FIELD: Final = "ElectricDesign"
+ELECTRIC_DESIGNS: Final = frozenset({"1", "2"})
+
 # Recommended-pressure field and the tyres it applies to.
 TYRE_AXLES: Final = (
     ("PSI_FRONT", ("Frontlefttyrepressure", "Frontrighttyrepressure")),

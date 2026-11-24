@@ -22,6 +22,8 @@ from .const import (
     ACTIVE_SCAN_INTERVAL,
     CHARGING_ON_VALUES,
     DOMAIN,
+    ELECTRIC_DESIGN_FIELD,
+    ELECTRIC_DESIGNS,
     ENGINE_ON_VALUES,
     EVENT_DRIVER_ALERT,
     LOCATION_OVERLAY_FIELDS,
@@ -51,6 +53,19 @@ def _is_newer(new_value: Any, old_value: Any) -> bool:
     return str(new_value) > str(old_value)
 
 
+def is_electric(data: dict[str, Any]) -> bool:
+    """Return True when the server reports real battery and charging data."""
+    return str(data.get(ELECTRIC_DESIGN_FIELD)) in ELECTRIC_DESIGNS
+
+
+def is_charging(data: dict[str, Any]) -> bool:
+    """Return True while an electric car charges."""
+    return (
+        is_electric(data)
+        and str(data.get("ElectricChargeStatus")) in CHARGING_ON_VALUES
+    )
+
+
 def is_active(data: dict[str, Any]) -> bool:
     """Return True while the car moves, its engine runs or it charges.
 
@@ -61,7 +76,7 @@ def is_active(data: dict[str, Any]) -> bool:
     return (
         (speed is not None and speed > 0)
         or str(data.get("EngineOn")) in ENGINE_ON_VALUES
-        or str(data.get("ElectricChargeStatus")) in CHARGING_ON_VALUES
+        or is_charging(data)
     )
 
 
