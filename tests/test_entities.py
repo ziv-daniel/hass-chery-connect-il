@@ -106,7 +106,8 @@ async def test_only_reported_fields_create_entities(
 ) -> None:
     """Empty payloads create only the always-present entities, with stable ids.
 
-    An empty getMessages answer still means "no messages" (count 0).
+    Extras sensors always exist (unknown until their endpoint answers), and an
+    empty getMessages answer still means "no messages" (count 0).
     """
     for name in mock_extras:
         mock_extras[name] = {}
@@ -118,8 +119,13 @@ async def test_only_reported_fields_create_entities(
     assert created == [
         "device_tracker.chery_location",
         "event.chery_driver_alert",
+        "sensor.chery_distance_this_month",
+        "sensor.chery_distance_today",
+        "sensor.chery_last_trip",
         "sensor.chery_messages",
+        "sensor.chery_monthly_distance_average",
     ]
+    assert hass.states.get("sensor.chery_last_trip").state == "unknown"
     assert hass.states.get("device_tracker.chery_location").state == "unknown"
     assert hass.states.get("sensor.chery_messages").state == "0"
 

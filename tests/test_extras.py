@@ -192,7 +192,7 @@ async def test_extras_slow_cadence(
 
 
 @pytest.mark.parametrize(
-    ("failing", "missing_entity"),
+    ("failing", "entity"),
     [
         pytest.param(EXTRA_DISTANCE, "distance_today", id="distance"),
         pytest.param(ENDPOINT_HISTORY, "last_trip", id="history"),
@@ -205,10 +205,12 @@ async def test_extra_failure_is_isolated(
     mock_config_entry: MockConfigEntry,
     mock_api: AiohttpClientMocker,
     mock_extras: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
     failing: str,
-    missing_entity: str | None,
+    entity: str | None,
 ) -> None:
-    """A failing extra endpoint loses only its own entity, never the setup."""
+    """A failing first fetch never breaks setup; its entity waits, then recovers."""
+    good = mock_extras[failing]
     mock_extras[failing] = ClientError("boom")
     mock_config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
@@ -216,8 +218,14 @@ async def test_extra_failure_is_isolated(
 
     assert hass.states.get(f"sensor.{PREFIX}_odometer").state == "12345.0"
     assert hass.states.get(f"event.{PREFIX}_driver_alert") is not None
-    if missing_entity:
-        assert hass.states.get(f"sensor.{PREFIX}_{missing_entity}") is None
+    if entity is None:
+        return
+    entity_id = f"sensor.{PREFIX}_{entity}"
+    assert hass.states.get(entity_id).state == "unknown"
+
+    mock_extras[failing] = good
+    await _tick(hass, freezer, EXTRAS_REFRESH_INTERVAL)
+    assert hass.states.get(entity_id).state != "unknown"
 
 
 async def test_extra_failure_keeps_last_value(

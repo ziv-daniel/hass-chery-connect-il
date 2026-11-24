@@ -162,7 +162,10 @@ class CheryExtras:
             "myCar distance", lambda: api.get_my_car(MY_CAR_TAB_DISTANCE)
         )
         if distance is not None:
-            self._values.update(parse_distance(distance))
+            parsed = parse_distance(distance)
+            # Values (not just the shape) settle whether DisanceMeterToday is m or km.
+            _LOGGER.debug("Extra myCar distance parsed: %s", parsed)
+            self._values.update(parsed)
         if (trip := await self._fetch("getHistory", api.get_history)) is not None:
             self._values[EXTRA_TRIP] = parse_trip(trip)
         if (messages := await self._fetch("getMessages", api.get_messages)) is not None:

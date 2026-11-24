@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (2026-11-24)
+## 0.3.0b1 (2026-11-24, beta)
 
 ### Added
 - Faster refresh while driving or charging: every minute while the engine

@@ -310,6 +310,19 @@ def _async_migrate_tyre_unit(hass: HomeAssistant, entry: CheryConfigEntry) -> No
         )
 
 
+# Extras come from separate, slower endpoints: a failed or empty first fetch
+# must not hide them for good, so they are always created (unknown until set).
+_EXTRA_SOURCES: frozenset[str] = frozenset(
+    {
+        EXTRA_DISTANCE_TODAY,
+        EXTRA_DISTANCE_MONTH,
+        EXTRA_DISTANCE_MONTH_AVG,
+        EXTRA_TRIP,
+        EXTRA_MESSAGES,
+    }
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CheryConfigEntry,
@@ -322,5 +335,5 @@ async def async_setup_entry(
     async_add_entities(
         CheryConnectSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS
-        if has_value(data, description.source)
+        if description.source in _EXTRA_SOURCES or has_value(data, description.source)
     )
