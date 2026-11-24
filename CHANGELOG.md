@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (2026-11-24)
+
+### Changed
+- Brand icon is now a generic connected car instead of the Chery emblem.
+
 ## 0.2.0 (2026-11-24)
 
 ### Fixed
