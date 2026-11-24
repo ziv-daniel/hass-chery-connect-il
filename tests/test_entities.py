@@ -24,7 +24,11 @@ from custom_components.chery_connect.const import (
     API_BASE_URL,
     DEFAULT_SCAN_INTERVAL,
 )
-from custom_components.chery_connect.sensor import _EXTRA_SOURCES, SENSOR_DESCRIPTIONS
+from custom_components.chery_connect.sensor import (
+    _EXTRA_SOURCES,
+    SENSOR_DESCRIPTIONS,
+    _voltage,
+)
 
 from .const import V_NUMBER
 
@@ -384,3 +388,20 @@ async def test_ev_battery_and_charge_status(
     assert battery.attributes[ATTR_UNIT_OF_MEASUREMENT] == "%"
     status = hass.states.get("sensor.chery_tiggo_8_pro_charge_status")
     assert status.state == "Charging"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("14.5V", 14.5),
+        (" 12.6 V", 12.6),
+        ("13.9", 13.9),
+        (12, 12.0),
+        ("V", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_voltage_accepts_unit_suffix(value: Any, expected: float | None) -> None:
+    """The 12V reading may carry its unit, as the app shows it verbatim."""
+    assert _voltage(value) == expected

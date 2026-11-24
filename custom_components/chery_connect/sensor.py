@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -77,6 +78,17 @@ def _parse_date(value: Any) -> date | None:
     if (parsed := dt_util.parse_datetime(value)) is not None:
         return parsed.date()
     return dt_util.parse_date(value)
+
+
+_LEADING_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _voltage(value: Any) -> float | None:
+    """Parse the 12V reading, which the app shows verbatim (e.g. "14.5V")."""
+    if (number := parse_float(value)) is not None:
+        return number
+    match = _LEADING_NUMBER.match(str(value or "").strip())
+    return float(match.group()) if match else None
 
 
 def _count(value: Any) -> int | None:
@@ -197,6 +209,7 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         key="battery_voltage",
         translation_key="battery_voltage",
         source="InputVoltage",
+        value_fn=_voltage,
         device_class=SensorDeviceClass.VOLTAGE,
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         state_class=SensorStateClass.MEASUREMENT,

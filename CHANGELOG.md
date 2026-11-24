@@ -16,6 +16,10 @@
 - Driver alert event entity and a `chery_connect_driver_alert` event for each
   new driver-behaviour alert.
 
+### Fixed
+- 12V battery voltage no longer shows unknown when the car sends the value
+  with its unit (e.g. "14.5V", as the app displays it).
+
 ### Changed
 - Tyre pressure is shown in PSI, the unit the car reports and the one used at
   Israeli gas stations, with no decimals. Metric installs used to convert it to
