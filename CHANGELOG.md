@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0b5 (2026-11-24, beta)
+
+### Added
+- Without an iPointer login, the integration tries the Chery Connect login
+  on iPointer (same Pointer backend). If iPointer accepts it, the real battery
+  data appears with no second login. A rejected login is tried once per
+  start and raises no repair issue. Until iPointer has sent battery data
+  once, the Chery data is left as it is. Diagnostics show the result in
+  `ev_login`.
+
 ## 0.3.0b4 (2026-11-24, beta)
 
 ### Added
