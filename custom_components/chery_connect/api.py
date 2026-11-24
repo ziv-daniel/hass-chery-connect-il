@@ -132,10 +132,6 @@ class CheryConnectApiClient:
         """POST a JSON body."""
         return await self._request("POST", endpoint, data or {}, auth=auth)
 
-    async def _get(self, endpoint: str) -> dict[str, Any]:
-        """GET with the Bearer token."""
-        return await self._request("GET", endpoint)
-
     async def request_otp(self, mobile_phone: str, v_number: str) -> dict[str, Any]:
         """Ask the server to send an SMS OTP.
 
@@ -170,8 +166,24 @@ class CheryConnectApiClient:
         return token
 
     async def test_token(self) -> bool:
-        """Validate the stored token with TestToken (GET)."""
-        await self._get(ENDPOINT_TEST_TOKEN)
+        """Validate the stored token with TestToken (GET).
+
+        Only the status matters: 200 means the token is valid and 401
+        means it is dead. The body is not a JSON object (it can be a bare
+        value or plain text), so it is never parsed.
+        """
+        url = f"{API_BASE_URL}{ENDPOINT_TEST_TOKEN}"
+        try:
+            async with self._session.get(
+                url,
+                headers=self._headers(auth=True),
+                timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
+            ) as resp:
+                self._check_status(resp, ENDPOINT_TEST_TOKEN)
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise CheryApiError(
+                f"Request to {ENDPOINT_TEST_TOKEN} failed: {err}"
+            ) from err
         return True
 
     async def get_vehicle_info(self) -> dict[str, Any]:

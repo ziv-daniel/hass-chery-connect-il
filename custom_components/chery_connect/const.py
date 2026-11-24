@@ -59,5 +59,6 @@ LOCATION_OVERLAY_FIELDS: Final = (
 ERROR_CANNOT_CONNECT: Final = "cannot_connect"
 ERROR_INVALID_OTP: Final = "invalid_otp"
 ERROR_BLOCKED: Final = "blocked"
-ERROR_INVALID_INPUT: Final = "invalid_input"
+ERROR_INVALID_PHONE: Final = "invalid_phone"
+ERROR_INVALID_V_NUMBER: Final = "invalid_v_number"
 ERROR_UNKNOWN: Final = "unknown"

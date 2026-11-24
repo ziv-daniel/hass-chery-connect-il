@@ -71,7 +71,7 @@ async def _start_user_flow(hass: HomeAssistant, user_input: dict[str, str]) -> A
     [
         pytest.param(PHONE, V_NUMBER, id="plain"),
         pytest.param("+972-50-123-4567", "12-345-67", id="formatted"),
-        pytest.param(" 050 1234567 ", " 1234567 ", id="padded"),
+        pytest.param(" 050-1234567 ", " 1234567 ", id="padded"),
     ],
 )
 async def test_user_flow_creates_entry(
@@ -99,12 +99,84 @@ async def test_user_flow_creates_entry(
     }
 
 
-async def test_user_flow_rejects_empty_numbers(hass: HomeAssistant) -> None:
-    """Input with no digits shows an error and sends no SMS."""
+@pytest.mark.parametrize(
+    ("phone", "v_number", "errors"),
+    [
+        pytest.param(
+            "---", V_NUMBER, {CONF_MOBILE_PHONE: "invalid_phone"}, id="phone_no_digits"
+        ),
+        pytest.param(
+            "050-123456a",
+            V_NUMBER,
+            {CONF_MOBILE_PHONE: "invalid_phone"},
+            id="phone_letter",
+        ),
+        pytest.param(
+            "050 1234567",
+            V_NUMBER,
+            {CONF_MOBILE_PHONE: "invalid_phone"},
+            id="phone_space",
+        ),
+        pytest.param(
+            "05+01234567",
+            V_NUMBER,
+            {CONF_MOBILE_PHONE: "invalid_phone"},
+            id="phone_inner_plus",
+        ),
+        pytest.param(
+            PHONE, "12-345-AB", {CONF_V_NUMBER: "invalid_v_number"}, id="plate_letters"
+        ),
+        pytest.param(
+            PHONE, "12 345 67", {CONF_V_NUMBER: "invalid_v_number"}, id="plate_space"
+        ),
+        pytest.param(
+            PHONE, "+1234567", {CONF_V_NUMBER: "invalid_v_number"}, id="plate_plus"
+        ),
+        pytest.param(
+            PHONE, "--", {CONF_V_NUMBER: "invalid_v_number"}, id="plate_no_digits"
+        ),
+        pytest.param(
+            "abc",
+            "xyz",
+            {CONF_MOBILE_PHONE: "invalid_phone", CONF_V_NUMBER: "invalid_v_number"},
+            id="both",
+        ),
+    ],
+)
+async def test_user_flow_rejects_invalid_characters(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    phone: str,
+    v_number: str,
+    errors: dict[str, str],
+) -> None:
+    """Only digits and dashes are accepted; the bad field is flagged, no SMS sent."""
     result = await _start_user_flow(
-        hass, {CONF_MOBILE_PHONE: "---", CONF_V_NUMBER: V_NUMBER}
+        hass, {CONF_MOBILE_PHONE: phone, CONF_V_NUMBER: v_number}
     )
-    assert result["errors"] == {"base": "invalid_input"}
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    assert result["errors"] == errors
+    assert not _otp_requests(aioclient_mock)
+
+
+async def test_user_flow_recovers_after_invalid_input(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Fixing the field after the error continues to the SMS step."""
+    _mock_login(aioclient_mock)
+    result = await _start_user_flow(
+        hass, {CONF_MOBILE_PHONE: PHONE, CONF_V_NUMBER: "12-345-6X"}
+    )
+    assert result["errors"] == {CONF_V_NUMBER: "invalid_v_number"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], USER_INPUT
+    )
+
+    assert result["step_id"] == "otp"
+    assert _otp_requests(aioclient_mock)[0]["VNumber"] == V_NUMBER
 
 
 async def test_user_flow_already_configured(
