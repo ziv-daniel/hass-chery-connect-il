@@ -94,6 +94,58 @@
       },
       "licence_date": {
         "name": "תאריך רישוי"
+      },
+      "ev_battery_level": {
+        "name": "סוללת EV"
+      },
+      "charge_status": {
+        "name": "מצב טעינה"
+      },
+      "distance_today": {
+        "name": "מרחק היום"
+      },
+      "distance_this_month": {
+        "name": "מרחק החודש"
+      },
+      "distance_monthly_average": {
+        "name": "ממוצע מרחק חודשי"
+      },
+      "last_trip": {
+        "name": "נסיעה אחרונה",
+        "state_attributes": {
+          "start": {
+            "name": "התחלה"
+          },
+          "points": {
+            "name": "נקודות"
+          }
+        }
+      },
+      "messages": {
+        "name": "הודעות",
+        "state_attributes": {
+          "latest_title": {
+            "name": "כותרת אחרונה"
+          },
+          "latest_text": {
+            "name": "תוכן אחרון"
+          },
+          "latest_time": {
+            "name": "זמן אחרון"
+          }
+        }
+      },
+      "speeding_events": {
+        "name": "אירועי מהירות החודש"
+      },
+      "harsh_acceleration_events": {
+        "name": "האצות חדות החודש"
+      },
+      "harsh_braking_events": {
+        "name": "בלימות חדות החודש"
+      },
+      "next_service_type": {
+        "name": "סוג הטיפול הבא"
       }
     },
     "binary_sensor": {
@@ -102,11 +154,43 @@
       },
       "engine_on": {
         "name": "מנוע פועל"
+      },
+      "tyre_pressure_low": {
+        "name": "לחץ אוויר נמוך",
+        "state_attributes": {
+          "recommended_front": {
+            "name": "מומלץ קדמי"
+          },
+          "recommended_rear": {
+            "name": "מומלץ אחורי"
+          },
+          "max_difference": {
+            "name": "סטייה מותרת"
+          }
+        }
       }
     },
     "device_tracker": {
       "location": {
         "name": "מיקום"
+      }
+    },
+    "event": {
+      "driver_alert": {
+        "name": "התראת נהג",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "driver_alert": "התראת נהג"
+            }
+          },
+          "message": {
+            "name": "הודעה"
+          },
+          "time": {
+            "name": "זמן"
+          }
+        }
       }
     }
   }

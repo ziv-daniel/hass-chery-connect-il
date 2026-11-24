@@ -39,6 +39,27 @@
       },
       "licence_date": {
         "default": "mdi:card-account-details"
+      },
+      "ev_battery_level": {
+        "default": "mdi:battery-charging-high"
+      },
+      "charge_status": {
+        "default": "mdi:ev-station"
+      },
+      "distance_today": {
+        "default": "mdi:map-marker-path"
+      },
+      "distance_this_month": {
+        "default": "mdi:calendar-month"
+      },
+      "distance_monthly_average": {
+        "default": "mdi:chart-bar"
+      },
+      "last_trip": {
+        "default": "mdi:map-clock"
+      },
+      "messages": {
+        "default": "mdi:message-text"
       }
     },
     "binary_sensor": {
@@ -47,11 +68,19 @@
       },
       "engine_on": {
         "default": "mdi:engine"
+      },
+      "tyre_pressure_low": {
+        "default": "mdi:car-tire-alert"
       }
     },
     "device_tracker": {
       "location": {
         "default": "mdi:car"
+      }
+    },
+    "event": {
+      "driver_alert": {
+        "default": "mdi:steering"
       }
     }
   }

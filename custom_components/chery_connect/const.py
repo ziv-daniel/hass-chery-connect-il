@@ -36,6 +36,13 @@ API_TIME_ZONE: Final = "Asia/Jerusalem"
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=10)
 MIN_SCAN_INTERVAL: Final = timedelta(minutes=5)
 MAX_SCAN_INTERVAL: Final = timedelta(minutes=60)
+# While the engine runs or the car charges, poll every minute so a drive or
+# a charge is not missed between idle polls. The app itself refreshes
+# VehicleInfo every 60 s on its home screen (GAUGE_INTERVAL=6e4).
+ACTIVE_SCAN_INTERVAL: Final = timedelta(minutes=1)
+# The extra endpoints (distance, driver alerts, trip history, messages)
+# change slowly, so they are fetched at most this often.
+EXTRAS_REFRESH_INTERVAL: Final = timedelta(minutes=30)
 
 # Endpoint names (POST {API_BASE_URL}{name}).
 ENDPOINT_VEHICLE_INFO: Final = "VehicleInfo"
@@ -43,13 +50,53 @@ ENDPOINT_LAST_LOCATION: Final = "lastLocation"
 ENDPOINT_TEST_TOKEN: Final = "TestToken"
 ENDPOINT_LOGIN_OTP: Final = "login/otp"
 ENDPOINT_LOGIN_OTP_CHECK: Final = "login/otpCheck"
+ENDPOINT_MY_CAR: Final = "myCar"
+ENDPOINT_HISTORY: Final = "getHistory"
+ENDPOINT_MESSAGES: Final = "getMessages"
 
-# lastLocation fields the app copies onto VehicleInfo when newer.
+# myCar tabs, as the app's personal-zone page requests them.
+MY_CAR_TAB_DISTANCE: Final = 0
+MY_CAR_TAB_DRIVER_ALERTS: Final = 2
+MY_CAR_TAB_DRIVING_EVENTS: Final = 4
+
+# Values the app treats as "on" for EngineOn and ElectricChargeStatus.
+ENGINE_ON_VALUES: Final = frozenset({"1", "True", "true"})
+CHARGING_ON_VALUES: Final = frozenset({"1"})
+
+# Recommended-pressure field and the tyres it applies to.
+TYRE_AXLES: Final = (
+    ("PSI_FRONT", ("Frontlefttyrepressure", "Frontrighttyrepressure")),
+    ("PSI_BACK", ("Rearlefttyrepressure", "Rearrighttyrepressure")),
+)
+
+# The app's fallback when VehicleInfo carries no maxDiff (PSI).
+DEFAULT_TYRE_MAX_DIFF: Final = 2.0
+
+# Fired once per new driver-behaviour alert from myCar tab 2.
+EVENT_DRIVER_ALERT: Final = "chery_connect_driver_alert"
+DRIVER_ALERT_EVENT_TYPE: Final = "driver_alert"
+
+# Keys the extra endpoints add to the coordinator data. Lower-case so they
+# can never collide with the API's own PascalCase VehicleInfo fields.
+EXTRA_DISTANCE_TODAY: Final = "distance_today"
+EXTRA_DISTANCE_MONTH: Final = "distance_this_month"
+EXTRA_DISTANCE_MONTH_AVG: Final = "distance_monthly_average"
+EXTRA_MESSAGES: Final = "messages"
+EXTRA_TRIP: Final = "trip_history"
+EXTRA_SPEEDING_EVENTS: Final = "speeding_events"
+EXTRA_ACCELERATION_EVENTS: Final = "harsh_acceleration_events"
+EXTRA_BRAKING_EVENTS: Final = "harsh_braking_events"
+EXTRA_NEW_DRIVER_ALERTS: Final = "new_driver_alerts"
+
+# lastLocation fields copied onto VehicleInfo when newer. The app copies all
+# but EngineOn (it uses that one for the map icon); it is fresher than the
+# VehicleInfo value while driving, so it is taken too.
 LOCATION_OVERLAY_FIELDS: Final = (
     "Latitude",
     "Longtitude",
     "Speed",
     "Direction",
+    "EngineOn",
     "InputVoltage",
     "InputVoltageStatus",
     "InputVoltageStatusText",

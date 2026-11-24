@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0b1 (2026-11-24, beta)
+
+### Added
+- Faster refresh while driving or charging: every minute while the engine
+  runs or the car charges, back to your interval when parked. Engine on now
+  also comes from the fresher location data.
+- EV battery level and charge status sensors (plug-in cars).
+- Tyre pressure low binary sensor, using the recommended pressure and the
+  allowed difference the car reports.
+- Distance today, distance this month and monthly distance average sensors.
+- Last trip sensor (from the app's trip history) and a messages sensor.
+- Speeding, harsh acceleration and harsh braking counts this month (the
+  app's driver-behaviour graph) and a next service type sensor.
+- Driver alert event entity and a `chery_connect_driver_alert` event for each
+  new driver-behaviour alert.
+
+### Fixed
+- 12V battery voltage no longer shows unknown when the car sends the value
+  with its unit (e.g. "14.5V", as the app displays it).
+- Tyre pressure low stays unknown when the server has no recommended
+  pressure (it sends -1), instead of judging against it; the app shows a
+  false "pressure not OK" in that case.
+
+### Changed
+- Tyre pressure is shown in PSI, the unit the car reports and the one used at
+  Israeli gas stations, with no decimals. Metric installs used to convert it to
+  kPa (e.g. 262.000766 kPa for 38 PSI). Existing sensors switch automatically
+  unless you picked a unit yourself in the entity settings.
+
+### Notes
+- Distance, trip, messages and driver alerts are fetched every 30 minutes.
+  Their payloads are taken from the app's code, not from a live capture. If
+  one of them fails, only its entity is affected.
+
 ## 0.2.3 (2026-11-24)
 
 ### Changed

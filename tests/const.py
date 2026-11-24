@@ -6,3 +6,8 @@ V_NUMBER = "1234567"
 CODE = "123456"
 NEW_TOKEN = "n" * 32
 OTHER_V_NUMBER = "7654321"
+
+# Keys of the extras_payloads fixture for the two myCar tabs.
+EXTRA_DISTANCE = "myCar distance"
+EXTRA_DRIVER_ALERTS = "myCar driver alerts"
+EXTRA_DRIVING_EVENTS = "myCar driving events"

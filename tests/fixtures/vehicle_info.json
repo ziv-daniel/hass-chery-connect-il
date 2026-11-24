@@ -17,11 +17,15 @@
   "Rearlefttyrepressure": "34",
   "Rearrighttyrepressure": "34.5",
   "NextTreatmentDate": "2027-03-15",
+  "NextTreatmentType": "טיפול 30000 ק\"מ",
   "InsureDate": "2027-01-01T00:00:00",
   "LicensingDate": "2027-06-30",
   "Latitude": "32.0800",
   "Longtitude": "34.7800",
   "Direction": "90",
   "Address": "Example St 1, Tel Aviv",
-  "GPSDatetime": "2026-11-23T10:00:00"
+  "GPSDatetime": "2026-11-23T10:00:00",
+  "PSI_FRONT": "36",
+  "PSI_BACK": "36",
+  "maxDiff": "2"
 }

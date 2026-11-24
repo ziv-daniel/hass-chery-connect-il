@@ -10,18 +10,24 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
 import aiohttp
+from homeassistant.util import dt as dt_util
 
 from .const import (
     API_BASE_URL,
+    API_TIME_ZONE,
     API_TIMEOUT,
     APPID,
+    ENDPOINT_HISTORY,
     ENDPOINT_LAST_LOCATION,
     ENDPOINT_LOGIN_OTP,
     ENDPOINT_LOGIN_OTP_CHECK,
+    ENDPOINT_MESSAGES,
+    ENDPOINT_MY_CAR,
     ENDPOINT_TEST_TOKEN,
     ENDPOINT_VEHICLE_INFO,
     MIN_TOKEN_LENGTH,
@@ -54,6 +60,19 @@ def parse_float(value: Any) -> float | None:
         return float(str(value).strip().replace(",", ""))
     except TypeError, ValueError:
         return None
+
+
+def parse_api_time(value: Any) -> datetime | None:
+    """Parse an API time string, else None; naive times are API-local."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt_util.get_time_zone(API_TIME_ZONE))
+    return parsed
 
 
 def parse_odometer(value: Any) -> float | None:
@@ -247,3 +266,15 @@ class CheryConnectApiClient:
     async def get_last_location(self) -> dict[str, Any]:
         """Fetch lastLocation (POST, empty body)."""
         return await self._post(ENDPOINT_LAST_LOCATION, {})
+
+    async def get_my_car(self, tab_id: int) -> dict[str, Any]:
+        """Fetch one myCar tab (POST {"tabId": n}), as the app's personal zone."""
+        return await self._post(ENDPOINT_MY_CAR, {"tabId": tab_id})
+
+    async def get_history(self) -> dict[str, Any]:
+        """Fetch the recorded trip trace (POST, empty body)."""
+        return await self._post(ENDPOINT_HISTORY, {})
+
+    async def get_messages(self) -> dict[str, Any]:
+        """Fetch the importer's messages (POST, empty body)."""
+        return await self._post(ENDPOINT_MESSAGES, {})

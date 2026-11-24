@@ -94,6 +94,58 @@
       },
       "licence_date": {
         "name": "Licence date"
+      },
+      "ev_battery_level": {
+        "name": "EV battery"
+      },
+      "charge_status": {
+        "name": "Charge status"
+      },
+      "distance_today": {
+        "name": "Distance today"
+      },
+      "distance_this_month": {
+        "name": "Distance this month"
+      },
+      "distance_monthly_average": {
+        "name": "Monthly distance average"
+      },
+      "last_trip": {
+        "name": "Last trip",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "points": {
+            "name": "Points"
+          }
+        }
+      },
+      "messages": {
+        "name": "Messages",
+        "state_attributes": {
+          "latest_title": {
+            "name": "Latest title"
+          },
+          "latest_text": {
+            "name": "Latest text"
+          },
+          "latest_time": {
+            "name": "Latest time"
+          }
+        }
+      },
+      "speeding_events": {
+        "name": "Speeding events this month"
+      },
+      "harsh_acceleration_events": {
+        "name": "Harsh acceleration events this month"
+      },
+      "harsh_braking_events": {
+        "name": "Harsh braking events this month"
+      },
+      "next_service_type": {
+        "name": "Next service type"
       }
     },
     "binary_sensor": {
@@ -102,11 +154,43 @@
       },
       "engine_on": {
         "name": "Engine on"
+      },
+      "tyre_pressure_low": {
+        "name": "Tyre pressure low",
+        "state_attributes": {
+          "recommended_front": {
+            "name": "Recommended front"
+          },
+          "recommended_rear": {
+            "name": "Recommended rear"
+          },
+          "max_difference": {
+            "name": "Allowed difference"
+          }
+        }
       }
     },
     "device_tracker": {
       "location": {
         "name": "Location"
+      }
+    },
+    "event": {
+      "driver_alert": {
+        "name": "Driver alert",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "driver_alert": "Driver alert"
+            }
+          },
+          "message": {
+            "name": "Message"
+          },
+          "time": {
+            "name": "Time"
+          }
+        }
       }
     }
   }

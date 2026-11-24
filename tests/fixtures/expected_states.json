@@ -9,6 +9,11 @@
     "state": "off",
     "unit": null
   },
+  "binary_sensor.chery_tiggo_8_pro_tyre_pressure_low": {
+    "device_class": "problem",
+    "state": "off",
+    "unit": null
+  },
   "device_tracker.chery_tiggo_8_pro_location": {
     "device_class": null,
     "latitude": 32.085,
@@ -16,19 +21,49 @@
     "state": "not_home",
     "unit": null
   },
+  "event.chery_tiggo_8_pro_driver_alert": {
+    "device_class": null,
+    "state": "unknown",
+    "unit": null
+  },
   "sensor.chery_tiggo_8_pro_12v_battery_voltage": {
     "device_class": "voltage",
     "state": "13.9",
     "unit": "V"
+  },
+  "sensor.chery_tiggo_8_pro_distance_this_month": {
+    "device_class": "distance",
+    "state": "845.0",
+    "unit": "km"
+  },
+  "sensor.chery_tiggo_8_pro_distance_today": {
+    "device_class": "distance",
+    "state": "12.5",
+    "unit": "km"
   },
   "sensor.chery_tiggo_8_pro_fuel_level": {
     "device_class": null,
     "state": "62.0",
     "unit": "%"
   },
+  "sensor.chery_tiggo_8_pro_harsh_acceleration_events_this_month": {
+    "device_class": null,
+    "state": "0",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_harsh_braking_events_this_month": {
+    "device_class": null,
+    "state": "0",
+    "unit": null
+  },
   "sensor.chery_tiggo_8_pro_insurance_date": {
     "device_class": "date",
     "state": "2027-01-01",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_last_trip": {
+    "device_class": "timestamp",
+    "state": "2026-11-23T07:40:00+00:00",
     "unit": null
   },
   "sensor.chery_tiggo_8_pro_licence_date": {
@@ -36,9 +71,24 @@
     "state": "2027-06-30",
     "unit": null
   },
+  "sensor.chery_tiggo_8_pro_messages": {
+    "device_class": null,
+    "state": "2",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_monthly_distance_average": {
+    "device_class": "distance",
+    "state": "1027.0",
+    "unit": "km"
+  },
   "sensor.chery_tiggo_8_pro_next_service": {
     "device_class": "date",
     "state": "2027-03-15",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_next_service_type": {
+    "device_class": null,
+    "state": "טיפול 30000 ק\"מ",
     "unit": null
   },
   "sensor.chery_tiggo_8_pro_odometer": {
@@ -51,24 +101,29 @@
     "state": "480.0",
     "unit": "km"
   },
+  "sensor.chery_tiggo_8_pro_speeding_events_this_month": {
+    "device_class": null,
+    "state": "4",
+    "unit": null
+  },
   "sensor.chery_tiggo_8_pro_tyre_pressure_front_left": {
     "device_class": "pressure",
-    "state": "241.316495",
-    "unit": "kPa"
+    "state": "35.0",
+    "unit": "psi"
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_front_right": {
     "device_class": "pressure",
-    "state": "244.7638735",
-    "unit": "kPa"
+    "state": "35.5",
+    "unit": "psi"
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_rear_left": {
     "device_class": "pressure",
-    "state": "234.421738",
-    "unit": "kPa"
+    "state": "34.0",
+    "unit": "psi"
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_rear_right": {
     "device_class": "pressure",
-    "state": "237.8691165",
-    "unit": "kPa"
+    "state": "34.5",
+    "unit": "psi"
   }
 }
