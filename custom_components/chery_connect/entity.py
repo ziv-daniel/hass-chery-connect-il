@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, Protocol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
@@ -13,6 +13,28 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import CheryConnectCoordinator
+
+
+class FieldDescription(Protocol):
+    """The description fields that decide whether an entity is created."""
+
+    @property
+    def source(self) -> str:
+        """The field the state is read from."""
+
+    @property
+    def presence(self) -> str | None:
+        """The field that must have a value, when not ``source``."""
+
+
+def creates_entity(data: dict[str, Any], description: FieldDescription) -> bool:
+    """Return True when the vehicle should get the entity of ``description``.
+
+    ``presence`` (default ``source``) is the field that must have a value. A
+    field that is empty while idle, like the charge status text, points it at
+    a field that always has one, so the entity exists and shows unknown.
+    """
+    return has_value(data, description.presence or description.source)
 
 
 def has_value(data: dict[str, Any], source: str) -> bool:

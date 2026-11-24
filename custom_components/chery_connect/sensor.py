@@ -40,7 +40,7 @@ from .const import (
     EXTRA_TRIP,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity, async_add_when_reported, has_value
+from .entity import CheryConnectEntity, async_add_when_reported, creates_entity
 
 # The coordinator does all fetching; entities never poll on their own.
 PARALLEL_UPDATES = 0
@@ -52,6 +52,7 @@ class CherySensorDescription(SensorEntityDescription):
 
     source: str
     value_fn: Callable[[Any], Any] = parse_float
+    presence: str | None = None
     attrs_fn: Callable[[Any], dict[str, Any]] | None = None
 
 
@@ -245,6 +246,7 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         key="charge_status",
         translation_key="charge_status",
         source="ElectricBatteryChargeStatusText",
+        presence="ElectricBatteryStatus",
         value_fn=_text,
     ),
     _distance(
@@ -381,7 +383,7 @@ async def async_setup_entry(
         coordinator,
         SENSOR_DESCRIPTIONS,
         lambda data, description: (
-            description.source in _EXTRA_SOURCES or has_value(data, description.source)
+            description.source in _EXTRA_SOURCES or creates_entity(data, description)
         ),
         lambda description: CheryConnectSensor(coordinator, description),
         async_add_entities,

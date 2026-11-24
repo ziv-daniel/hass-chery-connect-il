@@ -22,7 +22,7 @@ from .const import (
     TYRE_AXLES,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity, async_add_when_reported, has_value
+from .entity import CheryConnectEntity, async_add_when_reported, creates_entity
 
 # The coordinator does all fetching; entities never poll on their own.
 PARALLEL_UPDATES = 0
@@ -72,12 +72,14 @@ def tyre_attributes(data: dict[str, Any]) -> dict[str, Any]:
 class CheryBinarySensorDescription(BinarySensorEntityDescription):
     """Binary sensor description.
 
-    ``source`` decides whether the vehicle gets the entity; the state is
-    ``source`` matched against ``on_values``, or ``is_on_fn`` on all data.
+    ``presence`` (default ``source``) decides whether the vehicle gets the
+    entity; the state is ``source`` matched against ``on_values``, or
+    ``is_on_fn`` on all data.
     """
 
     source: str
     on_values: frozenset[str] = frozenset()
+    presence: str | None = None
     is_on_fn: Callable[[dict[str, Any]], bool | None] | None = None
     attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
@@ -101,6 +103,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[CheryBinarySensorDescription, ...] = (
         key="tyre_pressure_low",
         translation_key="tyre_pressure_low",
         source="PSI_FRONT",
+        presence="Frontlefttyrepressure",
         is_on_fn=tyre_pressure_low,
         attrs_fn=tyre_attributes,
         device_class=BinarySensorDeviceClass.PROBLEM,
@@ -152,7 +155,7 @@ async def async_setup_entry(
         entry,
         coordinator,
         BINARY_SENSOR_DESCRIPTIONS,
-        lambda data, description: has_value(data, description.source),
+        lambda data, description: creates_entity(data, description),
         lambda description: CheryConnectBinarySensor(coordinator, description),
         async_add_entities,
     )
