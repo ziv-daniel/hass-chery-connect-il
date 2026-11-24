@@ -23,13 +23,8 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
 from custom_components.chery_connect.const import (
     API_BASE_URL,
     DEFAULT_SCAN_INTERVAL,
-    EXTRA_DISTANCE_MONTH,
-    EXTRA_DISTANCE_MONTH_AVG,
-    EXTRA_DISTANCE_TODAY,
-    EXTRA_MESSAGES,
-    EXTRA_TRIP,
 )
-from custom_components.chery_connect.sensor import SENSOR_DESCRIPTIONS
+from custom_components.chery_connect.sensor import _EXTRA_SOURCES, SENSOR_DESCRIPTIONS
 
 from .const import V_NUMBER
 
@@ -38,14 +33,7 @@ EXPECTED = load_json_object_fixture("expected_states.json")
 EXTRAS_KEYS = {
     description.key
     for description in SENSOR_DESCRIPTIONS
-    if description.source
-    in {
-        EXTRA_DISTANCE_TODAY,
-        EXTRA_DISTANCE_MONTH,
-        EXTRA_DISTANCE_MONTH_AVG,
-        EXTRA_TRIP,
-        EXTRA_MESSAGES,
-    }
+    if description.source in _EXTRA_SOURCES
 }
 
 
@@ -121,9 +109,12 @@ async def test_only_reported_fields_create_entities(
         "event.chery_driver_alert",
         "sensor.chery_distance_this_month",
         "sensor.chery_distance_today",
+        "sensor.chery_harsh_acceleration_events_this_month",
+        "sensor.chery_harsh_braking_events_this_month",
         "sensor.chery_last_trip",
         "sensor.chery_messages",
         "sensor.chery_monthly_distance_average",
+        "sensor.chery_speeding_events_this_month",
     ]
     assert hass.states.get("sensor.chery_last_trip").state == "unknown"
     assert hass.states.get("device_tracker.chery_location").state == "unknown"

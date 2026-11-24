@@ -11,6 +11,8 @@
   allowed difference the car reports.
 - Distance today, distance this month and monthly distance average sensors.
 - Last trip sensor (from the app's trip history) and a messages sensor.
+- Speeding, harsh acceleration and harsh braking counts this month (the
+  app's driver-behaviour graph) and a next service type sensor.
 - Driver alert event entity and a `chery_connect_driver_alert` event for each
   new driver-behaviour alert.
 

@@ -134,6 +134,18 @@
             "name": "Latest time"
           }
         }
+      },
+      "speeding_events": {
+        "name": "Speeding events this month"
+      },
+      "harsh_acceleration_events": {
+        "name": "Harsh acceleration events this month"
+      },
+      "harsh_braking_events": {
+        "name": "Harsh braking events this month"
+      },
+      "next_service_type": {
+        "name": "Next service type"
       }
     },
     "binary_sensor": {

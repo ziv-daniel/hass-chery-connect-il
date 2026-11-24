@@ -46,6 +46,16 @@
     "state": "62.0",
     "unit": "%"
   },
+  "sensor.chery_tiggo_8_pro_harsh_acceleration_events_this_month": {
+    "device_class": null,
+    "state": "0",
+    "unit": null
+  },
+  "sensor.chery_tiggo_8_pro_harsh_braking_events_this_month": {
+    "device_class": null,
+    "state": "0",
+    "unit": null
+  },
   "sensor.chery_tiggo_8_pro_insurance_date": {
     "device_class": "date",
     "state": "2027-01-01",
@@ -76,6 +86,11 @@
     "state": "2027-03-15",
     "unit": null
   },
+  "sensor.chery_tiggo_8_pro_next_service_type": {
+    "device_class": null,
+    "state": "טיפול 30000 ק\"מ",
+    "unit": null
+  },
   "sensor.chery_tiggo_8_pro_odometer": {
     "device_class": "distance",
     "state": "12345.0",
@@ -85,6 +100,11 @@
     "device_class": "distance",
     "state": "480.0",
     "unit": "km"
+  },
+  "sensor.chery_tiggo_8_pro_speeding_events_this_month": {
+    "device_class": null,
+    "state": "4",
+    "unit": null
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_front_left": {
     "device_class": "pressure",

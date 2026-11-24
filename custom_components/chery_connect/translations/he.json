@@ -134,6 +134,18 @@
             "name": "זמן אחרון"
           }
         }
+      },
+      "speeding_events": {
+        "name": "אירועי מהירות החודש"
+      },
+      "harsh_acceleration_events": {
+        "name": "האצות חדות החודש"
+      },
+      "harsh_braking_events": {
+        "name": "בלימות חדות החודש"
+      },
+      "next_service_type": {
+        "name": "סוג הטיפול הבא"
       }
     },
     "binary_sensor": {

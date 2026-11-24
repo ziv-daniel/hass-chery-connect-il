@@ -1,4 +1,4 @@
-"""Slow-changing extras: distance, driver alerts, trip history and messages.
+"""Slow-changing extras: distance, driving events, alerts, trips and messages.
 
 These come from the app's personal-zone endpoints (myCar, getHistory,
 getMessages). Their payload shapes are taken from the app's JavaScript,
@@ -18,14 +18,18 @@ from homeassistant.util import dt as dt_util
 
 from .api import CheryApiError, CheryConnectApiClient, parse_api_time, parse_float
 from .const import (
+    EXTRA_ACCELERATION_EVENTS,
+    EXTRA_BRAKING_EVENTS,
     EXTRA_DISTANCE_MONTH,
     EXTRA_DISTANCE_MONTH_AVG,
     EXTRA_DISTANCE_TODAY,
     EXTRA_MESSAGES,
+    EXTRA_SPEEDING_EVENTS,
     EXTRA_TRIP,
     EXTRAS_REFRESH_INTERVAL,
     MY_CAR_TAB_DISTANCE,
     MY_CAR_TAB_DRIVER_ALERTS,
+    MY_CAR_TAB_DRIVING_EVENTS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +81,37 @@ def parse_distance(payload: dict[str, Any]) -> dict[str, float | None]:
             _json_field(payload.get("DistanceKMMonthAVG"))
         ),
     }
+
+
+# myCar tab 4 "data" is a JSON list of {title, value} bars, in this order.
+_DRIVING_EVENT_KEYS: tuple[tuple[str, str], ...] = (
+    ("מהירות", EXTRA_SPEEDING_EVENTS),
+    ("האצות", EXTRA_ACCELERATION_EVENTS),
+    ("בלימות", EXTRA_BRAKING_EVENTS),
+)
+
+
+def parse_driving_events(payload: dict[str, Any]) -> dict[str, int | None]:
+    """Speeding, harsh acceleration and braking counts this month (myCar tab 4).
+
+    Bars are matched by their Hebrew title, falling back to the app's order.
+    """
+    values: dict[str, int | None] = {key: None for _, key in _DRIVING_EVENT_KEYS}
+    bars = _json_field(payload.get("data"))
+    if not isinstance(bars, list):
+        return values
+    for index, bar in enumerate(bars):
+        if not isinstance(bar, dict):
+            continue
+        title = str(bar.get("title") or "").strip()
+        key = next((k for t, k in _DRIVING_EVENT_KEYS if t == title), None)
+        if key is None and not title and index < len(_DRIVING_EVENT_KEYS):
+            key = _DRIVING_EVENT_KEYS[index][1]
+        if key is None:
+            continue
+        count = parse_float(bar.get("value"))
+        values[key] = None if count is None else int(count)
+    return values
 
 
 def _alert_time(value: Any) -> datetime | None:
@@ -166,6 +201,13 @@ class CheryExtras:
             # Values (not just the shape) settle whether DisanceMeterToday is m or km.
             _LOGGER.debug("Extra myCar distance parsed: %s", parsed)
             self._values.update(parsed)
+        events = await self._fetch(
+            "myCar driving events", lambda: api.get_my_car(MY_CAR_TAB_DRIVING_EVENTS)
+        )
+        if events is not None:
+            parsed_events = parse_driving_events(events)
+            _LOGGER.debug("Extra myCar driving events parsed: %s", parsed_events)
+            self._values.update(parsed_events)
         if (trip := await self._fetch("getHistory", api.get_history)) is not None:
             self._values[EXTRA_TRIP] = parse_trip(trip)
         if (messages := await self._fetch("getMessages", api.get_messages)) is not None:

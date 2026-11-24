@@ -24,15 +24,19 @@ from custom_components.chery_connect.const import (
     ENDPOINT_MESSAGES,
     ENDPOINT_MY_CAR,
     EVENT_DRIVER_ALERT,
+    EXTRA_ACCELERATION_EVENTS,
+    EXTRA_BRAKING_EVENTS,
     EXTRA_DISTANCE_MONTH,
     EXTRA_DISTANCE_MONTH_AVG,
     EXTRA_DISTANCE_TODAY,
+    EXTRA_SPEEDING_EVENTS,
     EXTRAS_REFRESH_INTERVAL,
 )
 from custom_components.chery_connect.extras import (
     describe_shape,
     parse_distance,
     parse_driver_alerts,
+    parse_driving_events,
     parse_messages,
     parse_trip,
 )
@@ -43,7 +47,7 @@ from custom_components.chery_connect.sensor import (
     _trip_end,
 )
 
-from .const import EXTRA_DISTANCE, EXTRA_DRIVER_ALERTS
+from .const import EXTRA_DISTANCE, EXTRA_DRIVER_ALERTS, EXTRA_DRIVING_EVENTS
 
 PREFIX = "chery_tiggo_8_pro"
 
@@ -182,13 +186,13 @@ async def test_extras_slow_cadence(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     """Extras are fetched at setup, skipped on normal polls, refetched when due."""
-    assert _extras_calls(aioclient_mock) == 4
+    assert _extras_calls(aioclient_mock) == 5
 
     await _tick(hass, freezer, DEFAULT_SCAN_INTERVAL)
-    assert _extras_calls(aioclient_mock) == 4
+    assert _extras_calls(aioclient_mock) == 5
 
     await _tick(hass, freezer, EXTRAS_REFRESH_INTERVAL)
-    assert _extras_calls(aioclient_mock) == 8
+    assert _extras_calls(aioclient_mock) == 10
 
 
 @pytest.mark.parametrize(
@@ -198,6 +202,7 @@ async def test_extras_slow_cadence(
         pytest.param(ENDPOINT_HISTORY, "last_trip", id="history"),
         pytest.param(ENDPOINT_MESSAGES, "messages", id="messages"),
         pytest.param(EXTRA_DRIVER_ALERTS, None, id="driver_alerts"),
+        pytest.param(EXTRA_DRIVING_EVENTS, "speeding_events_this_month", id="events"),
     ],
 )
 async def test_extra_failure_is_isolated(
@@ -289,3 +294,49 @@ def test_extras_value_helpers_tolerate_non_dicts(value: Any) -> None:
     assert _messages_attrs(value) == {}
     assert _trip_end(value) is None
     assert _trip_attrs(value) == {}
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        pytest.param(
+            {"data": json.dumps([{"title": "בלימות", "value": 2}])},
+            (None, None, 2),
+            id="by_title",
+        ),
+        pytest.param(
+            {"data": [{"value": "1"}, {"value": "2"}, {"value": "3"}]},
+            (1, 2, 3),
+            id="untitled_by_order",
+        ),
+        pytest.param(
+            {"data": [{"title": "other", "value": 9}, "x", {"title": "מהירות"}]},
+            (None, None, None),
+            id="unknown_title_and_junk",
+        ),
+        pytest.param({"data": "not json"}, (None, None, None), id="bad_json"),
+        pytest.param({}, (None, None, None), id="missing"),
+    ],
+)
+def test_parse_driving_events(
+    payload: dict[str, Any], expected: tuple[Any, ...]
+) -> None:
+    """Counts come by Hebrew title, by order when untitled, None when unknown."""
+    parsed = parse_driving_events(payload)
+    assert (
+        parsed[EXTRA_SPEEDING_EVENTS],
+        parsed[EXTRA_ACCELERATION_EVENTS],
+        parsed[EXTRA_BRAKING_EVENTS],
+    ) == expected
+
+
+async def test_driving_event_sensors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """The monthly driving-event bars and the next service type show up."""
+    assert hass.states.get(f"sensor.{PREFIX}_speeding_events_this_month").state == "4"
+    assert (
+        hass.states.get(f"sensor.{PREFIX}_harsh_braking_events_this_month").state == "0"
+    )
+    service_type = hass.states.get(f"sensor.{PREFIX}_next_service_type")
+    assert service_type.state == 'טיפול 30000 ק"מ'

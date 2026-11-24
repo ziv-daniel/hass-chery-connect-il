@@ -31,9 +31,17 @@ from custom_components.chery_connect.const import (
     ENDPOINT_MY_CAR,
     MY_CAR_TAB_DISTANCE,
     MY_CAR_TAB_DRIVER_ALERTS,
+    MY_CAR_TAB_DRIVING_EVENTS,
 )
 
-from .const import EXTRA_DISTANCE, EXTRA_DRIVER_ALERTS, PHONE, TOKEN, V_NUMBER
+from .const import (
+    EXTRA_DISTANCE,
+    EXTRA_DRIVER_ALERTS,
+    EXTRA_DRIVING_EVENTS,
+    PHONE,
+    TOKEN,
+    V_NUMBER,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +67,7 @@ def extras_payloads() -> dict[str, Any]:
     return {
         EXTRA_DISTANCE: load_json_object_fixture("my_car_distance.json"),
         EXTRA_DRIVER_ALERTS: load_json_object_fixture("my_car_driver_alerts.json"),
+        EXTRA_DRIVING_EVENTS: load_json_object_fixture("my_car_driving_events.json"),
         ENDPOINT_HISTORY: load_json_object_fixture("history.json"),
         ENDPOINT_MESSAGES: load_json_object_fixture("messages.json"),
     }
@@ -78,6 +87,7 @@ def register_extras(
     async def _my_car(method: str, url: URL, data: Any) -> AiohttpClientMockResponse:
         tabs = {MY_CAR_TAB_DISTANCE: EXTRA_DISTANCE}
         tabs[MY_CAR_TAB_DRIVER_ALERTS] = EXTRA_DRIVER_ALERTS
+        tabs[MY_CAR_TAB_DRIVING_EVENTS] = EXTRA_DRIVING_EVENTS
         return _answer(tabs[data["tabId"]], url)
 
     def _plain(name: str):

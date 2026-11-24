@@ -29,10 +29,13 @@ from homeassistant.util import dt as dt_util
 
 from .api import parse_float, parse_odometer
 from .const import (
+    EXTRA_ACCELERATION_EVENTS,
+    EXTRA_BRAKING_EVENTS,
     EXTRA_DISTANCE_MONTH,
     EXTRA_DISTANCE_MONTH_AVG,
     EXTRA_DISTANCE_TODAY,
     EXTRA_MESSAGES,
+    EXTRA_SPEEDING_EVENTS,
     EXTRA_TRIP,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
@@ -74,6 +77,11 @@ def _parse_date(value: Any) -> date | None:
     if (parsed := dt_util.parse_datetime(value)) is not None:
         return parsed.date()
     return dt_util.parse_date(value)
+
+
+def _count(value: Any) -> int | None:
+    """Return a whole event count (already an int from the parser)."""
+    return value if isinstance(value, int) else None
 
 
 def _text(value: Any) -> str | None:
@@ -118,6 +126,17 @@ def _distance(
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=state_class,
+    )
+
+
+def _driving_events(key: str) -> CherySensorDescription:
+    """Return a monthly driving-event count description (myCar tab 4)."""
+    return CherySensorDescription(
+        key=key,
+        translation_key=key,
+        source=key,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_count,
     )
 
 
@@ -239,11 +258,21 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         value_fn=_messages_count,
         attrs_fn=_messages_attrs,
     ),
+    _driving_events(EXTRA_SPEEDING_EVENTS),
+    _driving_events(EXTRA_ACCELERATION_EVENTS),
+    _driving_events(EXTRA_BRAKING_EVENTS),
     _tyre("tyre_pressure_front_left", "Frontlefttyrepressure"),
     _tyre("tyre_pressure_front_right", "Frontrighttyrepressure"),
     _tyre("tyre_pressure_rear_left", "Rearlefttyrepressure"),
     _tyre("tyre_pressure_rear_right", "Rearrighttyrepressure"),
     _date("next_service", "NextTreatmentDate"),
+    CherySensorDescription(
+        key="next_service_type",
+        translation_key="next_service_type",
+        source="NextTreatmentType",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_text,
+    ),
     _date("insurance_date", "InsureDate"),
     _date("licence_date", "LicensingDate"),
 )
@@ -319,6 +348,9 @@ _EXTRA_SOURCES: frozenset[str] = frozenset(
         EXTRA_DISTANCE_MONTH_AVG,
         EXTRA_TRIP,
         EXTRA_MESSAGES,
+        EXTRA_SPEEDING_EVENTS,
+        EXTRA_ACCELERATION_EVENTS,
+        EXTRA_BRAKING_EVENTS,
     }
 )
 

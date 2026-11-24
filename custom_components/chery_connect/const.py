@@ -57,6 +57,7 @@ ENDPOINT_MESSAGES: Final = "getMessages"
 # myCar tabs, as the app's personal-zone page requests them.
 MY_CAR_TAB_DISTANCE: Final = 0
 MY_CAR_TAB_DRIVER_ALERTS: Final = 2
+MY_CAR_TAB_DRIVING_EVENTS: Final = 4
 
 # Values the app treats as "on" for EngineOn and ElectricChargeStatus.
 ENGINE_ON_VALUES: Final = frozenset({"1", "True", "true"})
@@ -82,6 +83,9 @@ EXTRA_DISTANCE_MONTH: Final = "distance_this_month"
 EXTRA_DISTANCE_MONTH_AVG: Final = "distance_monthly_average"
 EXTRA_MESSAGES: Final = "messages"
 EXTRA_TRIP: Final = "trip_history"
+EXTRA_SPEEDING_EVENTS: Final = "speeding_events"
+EXTRA_ACCELERATION_EVENTS: Final = "harsh_acceleration_events"
+EXTRA_BRAKING_EVENTS: Final = "harsh_braking_events"
 EXTRA_NEW_DRIVER_ALERTS: Final = "new_driver_alerts"
 
 # lastLocation fields copied onto VehicleInfo when newer. The app copies all
