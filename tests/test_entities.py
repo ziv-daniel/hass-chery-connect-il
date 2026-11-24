@@ -460,6 +460,29 @@ async def test_placeholder_electric_entities_removed(
     assert hass.states.get("sensor.chery_tiggo_8_pro_odometer") is not None
 
 
+async def test_electric_entities_kept_without_electric_design(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    entity_registry: er.EntityRegistry,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A refresh without ElectricDesign must not delete EV registry entries."""
+    mock_config_entry.add_to_hass(hass)
+    for domain, key in ELECTRIC_REGISTRY_KEYS:
+        entity_registry.async_get_or_create(
+            domain, DOMAIN, f"{V_NUMBER}_{key}", config_entry=mock_config_entry
+        )
+    vehicle_info.pop(ELECTRIC_DESIGN_FIELD, None)
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    for domain, key in ELECTRIC_REGISTRY_KEYS:
+        unique_id = f"{V_NUMBER}_{key}"
+        assert entity_registry.async_get_entity_id(domain, DOMAIN, unique_id)
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [

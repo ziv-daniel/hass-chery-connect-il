@@ -12,7 +12,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, ELECTRIC_DESIGN_FIELD
 from .coordinator import CheryConnectCoordinator, is_electric
 
 
@@ -63,9 +63,12 @@ def async_remove_placeholder_entities(
     """Remove battery and charging entities of a car that is not electric.
 
     Up to 0.3.0b2 they were created from the placeholder values, so a plug-in
-    hybrid showed a fixed 88 % battery that never charged.
+    hybrid showed a fixed 88 % battery that never charged. Nothing is removed
+    when the field is missing, so an electric car whose refresh lacks it keeps
+    its entities and history.
     """
-    if is_electric(coordinator.data or {}):
+    data = coordinator.data or {}
+    if data.get(ELECTRIC_DESIGN_FIELD) in (None, "") or is_electric(data):
         return
     registry = er.async_get(hass)
     vehicle_id = coordinator.config_entry.unique_id
