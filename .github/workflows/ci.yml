@@ -15,17 +15,19 @@ concurrency:
 
 # Runs on Ziv's self-hosted homelab runner pool (GitHub-hosted minutes are
 # billing-blocked). PRs from forks fall back to GitHub-hosted runners so
-# untrusted code never reaches the shared pool.
+# untrusted code never reaches the shared pool. Third-party actions are
+# pinned to commit SHAs because they execute inside the home network;
+# Dependabot (github-actions ecosystem) keeps the pins current.
 
 jobs:
   test:
     runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # setup-python has no 3.14 build for the pool's Ubuntu 20.04 base;
       # uv's standalone Python builds are distro-independent.
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           python-version: "3.14"
           activate-environment: true
@@ -41,8 +43,8 @@ jobs:
     runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: home-assistant/actions/hassfest@9e9565e68f5a70d874202871f4c4064d23814235 # master 2026-11-24
 
   hacs:
     runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '"ubuntu-latest"' || '["self-hosted","linux","x64","homelab"]') }}
@@ -50,7 +52,7 @@ jobs:
     # HACS validation fails while the repo is private; don't block CI on it.
     continue-on-error: true
     steps:
-      - uses: hacs/action@main
+      - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration
           # No brand images yet (planned with the 2026.3+ brand/ folder).
