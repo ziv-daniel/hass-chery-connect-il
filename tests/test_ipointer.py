@@ -359,3 +359,28 @@ async def test_chery_login_failure_after_data_shows_unknown(
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.chery_tiggo_8_pro_ev_battery").state == "unknown"
+
+
+async def test_chery_login_rejected_after_data(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A later rejection shows unknown and is reported in diagnostics."""
+    answers = [_ipointer_info(), None]
+
+    async def _vehicle_info(method: str, url: Any, data: Any) -> Any:
+        if (payload := answers.pop(0)) is None:
+            return AiohttpClientMockResponse(method, url, status=401)
+        return AiohttpClientMockResponse(method, url, json=payload)
+
+    aioclient_mock.post(IPOINTER_VEHICLE_INFO, side_effect=_vehicle_info)
+    await _setup(hass, mock_config_entry, aioclient_mock, vehicle_info, last_location)
+    await mock_config_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.chery_tiggo_8_pro_ev_battery").state == "unknown"
+    diagnostics = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+    assert diagnostics["ev_login"] == "chery_login_rejected"

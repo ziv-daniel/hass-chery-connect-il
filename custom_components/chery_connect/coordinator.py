@@ -265,10 +265,10 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Describe the iPointer login for diagnostics."""
         if not self.ev_shared:
             return "ipointer"
-        if self._ev_shared_ok:
-            return "chery_login_ok"
         if self.ev_api is None:
             return "chery_login_rejected"
+        if self._ev_shared_ok:
+            return "chery_login_ok"
         return "chery_login_no_battery_data"
 
     async def _apply_shared_ev_tile(self, data: dict[str, Any]) -> None:
