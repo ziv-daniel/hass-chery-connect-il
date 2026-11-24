@@ -23,5 +23,8 @@
   "Longtitude": "34.7800",
   "Direction": "90",
   "Address": "Example St 1, Tel Aviv",
-  "GPSDatetime": "2026-11-23T10:00:00"
+  "GPSDatetime": "2026-11-23T10:00:00",
+  "PSI_FRONT": "36",
+  "PSI_BACK": "36",
+  "maxDiff": "2"
 }

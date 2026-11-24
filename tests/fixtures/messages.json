@@ -1,0 +1,16 @@
+{
+  "Messages": [
+    {
+      "ItemId": 1,
+      "Messagetitle": "Service reminder",
+      "Messagetext": "Your car is due for service",
+      "DateTime": "2026-11-20T10:00:00"
+    },
+    {
+      "ItemId": 2,
+      "Messagetitle": "Recall notice",
+      "Messagetext": "Please call the service centre",
+      "DateTime": "2026-11-22T09:30:00"
+    }
+  ]
+}

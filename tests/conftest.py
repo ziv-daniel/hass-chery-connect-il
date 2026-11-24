@@ -16,7 +16,9 @@ from pytest_homeassistant_custom_component.common import (
 )
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
     AiohttpClientMocker,
+    AiohttpClientMockResponse,
 )
+from yarl import URL
 
 from custom_components.chery_connect.const import (
     API_BASE_URL,
@@ -24,9 +26,14 @@ from custom_components.chery_connect.const import (
     CONF_TOKEN,
     CONF_V_NUMBER,
     DOMAIN,
+    ENDPOINT_HISTORY,
+    ENDPOINT_MESSAGES,
+    ENDPOINT_MY_CAR,
+    MY_CAR_TAB_DISTANCE,
+    MY_CAR_TAB_DRIVER_ALERTS,
 )
 
-from .const import PHONE, TOKEN, V_NUMBER
+from .const import EXTRA_DISTANCE, EXTRA_DRIVER_ALERTS, PHONE, TOKEN, V_NUMBER
 
 
 @pytest.fixture(autouse=True)
@@ -44,6 +51,55 @@ def vehicle_info() -> dict[str, Any]:
 def last_location() -> dict[str, Any]:
     """Return a lastLocation payload."""
     return load_json_object_fixture("last_location.json")
+
+
+@pytest.fixture
+def extras_payloads() -> dict[str, Any]:
+    """Payloads for the extra endpoints; a test may swap one for an exception."""
+    return {
+        EXTRA_DISTANCE: load_json_object_fixture("my_car_distance.json"),
+        EXTRA_DRIVER_ALERTS: load_json_object_fixture("my_car_driver_alerts.json"),
+        ENDPOINT_HISTORY: load_json_object_fixture("history.json"),
+        ENDPOINT_MESSAGES: load_json_object_fixture("messages.json"),
+    }
+
+
+def register_extras(
+    aioclient_mock: AiohttpClientMocker, payloads: dict[str, Any]
+) -> None:
+    """Answer myCar, getHistory and getMessages from ``payloads`` at call time."""
+
+    def _answer(name: str, url: URL) -> AiohttpClientMockResponse:
+        payload = payloads[name]
+        if isinstance(payload, BaseException):
+            return AiohttpClientMockResponse("post", url, exc=payload)
+        return AiohttpClientMockResponse("post", url, json=payload)
+
+    async def _my_car(method: str, url: URL, data: Any) -> AiohttpClientMockResponse:
+        tabs = {MY_CAR_TAB_DISTANCE: EXTRA_DISTANCE}
+        tabs[MY_CAR_TAB_DRIVER_ALERTS] = EXTRA_DRIVER_ALERTS
+        return _answer(tabs[data["tabId"]], url)
+
+    def _plain(name: str):
+        async def _side_effect(
+            method: str, url: URL, data: Any
+        ) -> AiohttpClientMockResponse:
+            return _answer(name, url)
+
+        return _side_effect
+
+    aioclient_mock.post(f"{API_BASE_URL}{ENDPOINT_MY_CAR}", side_effect=_my_car)
+    for endpoint in (ENDPOINT_HISTORY, ENDPOINT_MESSAGES):
+        aioclient_mock.post(f"{API_BASE_URL}{endpoint}", side_effect=_plain(endpoint))
+
+
+@pytest.fixture(autouse=True)
+def mock_extras(
+    aioclient_mock: AiohttpClientMocker, extras_payloads: dict[str, Any]
+) -> dict[str, Any]:
+    """Register the extra endpoints for every test."""
+    register_extras(aioclient_mock, extras_payloads)
+    return extras_payloads
 
 
 @pytest.fixture
@@ -73,7 +129,7 @@ def mock_api(
 @pytest.fixture
 def platforms() -> list[str]:
     """Platforms to load; tests can narrow it."""
-    return ["sensor", "binary_sensor", "device_tracker"]
+    return ["sensor", "binary_sensor", "device_tracker", "event"]
 
 
 @pytest.fixture

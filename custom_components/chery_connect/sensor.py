@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -28,6 +28,13 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .api import parse_float, parse_odometer
+from .const import (
+    EXTRA_DISTANCE_MONTH,
+    EXTRA_DISTANCE_MONTH_AVG,
+    EXTRA_DISTANCE_TODAY,
+    EXTRA_MESSAGES,
+    EXTRA_TRIP,
+)
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
 from .entity import CheryConnectEntity, has_value
 
@@ -41,6 +48,7 @@ class CherySensorDescription(SensorEntityDescription):
 
     source: str
     value_fn: Callable[[Any], Any] = parse_float
+    attrs_fn: Callable[[Any], dict[str, Any]] | None = None
 
 
 def _range_from_fuel_desc(desc: Any) -> float | None:
@@ -66,6 +74,51 @@ def _parse_date(value: Any) -> date | None:
     if (parsed := dt_util.parse_datetime(value)) is not None:
         return parsed.date()
     return dt_util.parse_date(value)
+
+
+def _text(value: Any) -> str | None:
+    """Return a trimmed text field, None when empty."""
+    if value is None:
+        return None
+    return str(value).strip() or None
+
+
+def _messages_count(value: Any) -> int | None:
+    return value.get("count") if isinstance(value, dict) else None
+
+
+def _messages_attrs(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        key: value.get(key) for key in ("latest_title", "latest_text", "latest_time")
+    }
+
+
+def _trip_end(value: Any) -> datetime | None:
+    if not isinstance(value, dict) or not value.get("end"):
+        return None
+    return dt_util.parse_datetime(value["end"])
+
+
+def _trip_attrs(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return {"start": value.get("start"), "points": value.get("points")}
+
+
+def _distance(
+    key: str, source: str, state_class: SensorStateClass
+) -> CherySensorDescription:
+    """Return a distance description for the myCar extras (km)."""
+    return CherySensorDescription(
+        key=key,
+        translation_key=key,
+        source=source,
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
+        state_class=state_class,
+    )
 
 
 def _tyre(key: str, source: str) -> CherySensorDescription:
@@ -148,6 +201,44 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    CherySensorDescription(
+        key="ev_battery_level",
+        translation_key="ev_battery_level",
+        source="ElectricBatteryStatus",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    CherySensorDescription(
+        key="charge_status",
+        translation_key="charge_status",
+        source="ElectricBatteryChargeStatusText",
+        value_fn=_text,
+    ),
+    _distance(
+        EXTRA_DISTANCE_TODAY, EXTRA_DISTANCE_TODAY, SensorStateClass.TOTAL_INCREASING
+    ),
+    _distance(
+        EXTRA_DISTANCE_MONTH, EXTRA_DISTANCE_MONTH, SensorStateClass.TOTAL_INCREASING
+    ),
+    _distance(
+        EXTRA_DISTANCE_MONTH_AVG, EXTRA_DISTANCE_MONTH_AVG, SensorStateClass.MEASUREMENT
+    ),
+    CherySensorDescription(
+        key="last_trip",
+        translation_key="last_trip",
+        source=EXTRA_TRIP,
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=_trip_end,
+        attrs_fn=_trip_attrs,
+    ),
+    CherySensorDescription(
+        key="messages",
+        translation_key="messages",
+        source=EXTRA_MESSAGES,
+        value_fn=_messages_count,
+        attrs_fn=_messages_attrs,
+    ),
     _tyre("tyre_pressure_front_left", "Frontlefttyrepressure"),
     _tyre("tyre_pressure_front_right", "Frontrighttyrepressure"),
     _tyre("tyre_pressure_rear_left", "Rearlefttyrepressure"),
@@ -177,6 +268,16 @@ class CheryConnectSensor(CheryConnectEntity, SensorEntity):
         """Return the parsed field from the latest coordinator data."""
         data = self.coordinator.data or {}
         return self.entity_description.value_fn(
+            data.get(self.entity_description.source)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the description's attributes, if it has any."""
+        if self.entity_description.attrs_fn is None:
+            return None
+        data = self.coordinator.data or {}
+        return self.entity_description.attrs_fn(
             data.get(self.entity_description.source)
         )
 

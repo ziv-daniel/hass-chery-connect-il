@@ -3,13 +3,21 @@
 from typing import Any
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
     AiohttpClientMocker,
 )
 
-from custom_components.chery_connect.const import API_BASE_URL
+from custom_components.chery_connect.const import (
+    ACTIVE_SCAN_INTERVAL,
+    API_BASE_URL,
+    DEFAULT_SCAN_INTERVAL,
+)
 
 from .const import TOKEN
 
@@ -102,3 +110,61 @@ async def test_naive_gps_time_is_israel_local(
     await hass.async_block_till_done()
 
     assert mock_config_entry.runtime_data.data["Latitude"] == vehicle_info["Latitude"]
+
+
+async def test_engine_on_taken_from_newer_location(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A newer lastLocation EngineOn wins over the stale VehicleInfo one."""
+    last_location["EngineOn"] = "1"
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=vehicle_info)
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("binary_sensor.chery_tiggo_8_pro_engine_on").state == "on"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        pytest.param("EngineOn", "1", id="driving"),
+        pytest.param("ElectricChargeStatus", 1, id="charging"),
+    ],
+)
+async def test_interval_adapts_to_activity(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    field: str,
+    value: Any,
+) -> None:
+    """Polls every minute while driving or charging, then back to idle."""
+    active = dict(vehicle_info, **{field: value})
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=active)
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = mock_config_entry.runtime_data
+    assert coordinator.update_interval == ACTIVE_SCAN_INTERVAL
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=vehicle_info)
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    freezer.tick(ACTIVE_SCAN_INTERVAL)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 2
+    assert coordinator.update_interval == DEFAULT_SCAN_INTERVAL

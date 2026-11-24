@@ -38,21 +38,37 @@ Copy `custom_components/chery_connect` into your Home Assistant
 3. Enter the SMS code.
 
 Each vehicle is a separate entry. To change the refresh interval (default
-10 minutes, 5–60), open the integration's **Configure** options.
+10 minutes, 5–60), open the integration's **Configure** options. While the
+engine runs or the car charges, the integration refreshes every minute
+instead, so drives and charging show up. Distance, trip, messages and driver
+alerts change slowly and are fetched every 30 minutes.
 
 ## Entities
 
 | Platform | Entities |
 | --- | --- |
-| Sensor | Odometer, fuel level, range, electric range, speed¹, 12V battery voltage², tyre pressure ×4², next service², insurance date², licence date² |
-| Binary sensor | Charging, engine on |
+| Sensor | Odometer, fuel level, range, electric range, EV battery, charge status, distance today, distance this month, monthly distance average, last trip, messages, speed¹, 12V battery voltage², tyre pressure ×4², next service², insurance date², licence date² |
+| Binary sensor | Charging, engine on, tyre pressure low |
 | Device tracker | Location (with address, speed, direction and GPS time attributes) |
+| Event | Driver alert (driver-behaviour alerts from the app) |
 
 ¹ Disabled by default. ² Diagnostic entity.
 
 Entities are created only for the fields your car reports, so a petrol car
 has no charging or electric range entity. The UI is in English and Hebrew.
 There are no remote commands (lock, start), because the API doesn't offer any.
+
+- **Tyre pressure low** is on when any tyre is below the recommended
+  pressure minus the allowed difference the car reports (2 PSI if it reports
+  none). The recommended pressures are attributes.
+- **Last trip** is the time of the latest point of the recorded trip, with
+  its start time and point count as attributes.
+- **Messages** is the number of messages from the importer, with the newest
+  one's title, text and time as attributes.
+- **Driver alert** records each new driver-behaviour alert. Each one also
+  fires a `chery_connect_driver_alert` event (`config_entry_id`, `message`,
+  `time`) for automations. Alerts already in the report at startup don't
+  fire.
 
 ## Re-authentication
 
@@ -69,7 +85,9 @@ your token.
 
 The log always shows one line at startup with the refresh interval and one
 line per scheduled refresh. Debug logging adds a line for every API call (endpoint, HTTP status, duration,
-which fields came back) and for every scheduled refresh. These lines never
+which fields came back), for every scheduled refresh, and the shape
+(field types and lengths, no values) of each distance, trip, message and
+driver-alert response. These lines never
 include the token, phone, plate, SMS code or coordinates. To turn it on, go
 to **Settings → Devices & services → Chery Car Connect IL → ⋮ → Enable debug
 logging**, or add:
