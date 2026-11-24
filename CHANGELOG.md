@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0b3 (2026-11-24, beta)
+
+### Fixed
+- EV battery, electric range, charge status and charging are created only
+  for cars the server treats as electric (`ElectricDesign` 1 or 2, when the
+  app shows its battery screen). A Tiggo 8 PHEV gets fixed placeholder
+  values: it showed 88 % and not charging while the real battery was at 35 %
+  and charging. Those entities are removed on update, and charging no longer
+  triggers the 1-minute refresh for such cars.
+
 ## 0.3.0b2 (2026-11-24, beta)
 
 ### Fixed

@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -22,7 +23,12 @@ from .const import (
     TYRE_AXLES,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity, async_add_when_reported, creates_entity
+from .entity import (
+    CheryConnectEntity,
+    async_add_when_reported,
+    async_remove_placeholder_entities,
+    creates_entity,
+)
 
 # The coordinator does all fetching; entities never poll on their own.
 PARALLEL_UPDATES = 0
@@ -80,6 +86,7 @@ class CheryBinarySensorDescription(BinarySensorEntityDescription):
     source: str
     on_values: frozenset[str] = frozenset()
     presence: str | None = None
+    electric: bool = False
     is_on_fn: Callable[[dict[str, Any]], bool | None] | None = None
     attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
@@ -90,6 +97,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[CheryBinarySensorDescription, ...] = (
         translation_key="charging",
         source="ElectricChargeStatus",
         on_values=CHARGING_ON_VALUES,
+        electric=True,
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
     ),
     CheryBinarySensorDescription(
@@ -151,6 +159,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up the binary sensors for the fields this vehicle reports."""
     coordinator = entry.runtime_data
+    async_remove_placeholder_entities(
+        hass, coordinator, Platform.BINARY_SENSOR, BINARY_SENSOR_DESCRIPTIONS
+    )
     async_add_when_reported(
         entry,
         coordinator,

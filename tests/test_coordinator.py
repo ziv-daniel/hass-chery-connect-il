@@ -17,7 +17,9 @@ from custom_components.chery_connect.const import (
     ACTIVE_SCAN_INTERVAL,
     API_BASE_URL,
     DEFAULT_SCAN_INTERVAL,
+    ELECTRIC_DESIGN_FIELD,
 )
+from custom_components.chery_connect.coordinator import is_charging
 
 from .const import TOKEN
 
@@ -132,11 +134,13 @@ async def test_engine_on_taken_from_newer_location(
 
 
 @pytest.mark.parametrize(
-    ("field", "value"),
+    "fields",
     [
-        pytest.param("EngineOn", "1", id="driving"),
-        pytest.param("ElectricChargeStatus", 1, id="charging"),
-        pytest.param("Speed", "37", id="driving_electric"),
+        pytest.param({"EngineOn": "1"}, id="driving"),
+        pytest.param(
+            {ELECTRIC_DESIGN_FIELD: "1", "ElectricChargeStatus": 1}, id="charging"
+        ),
+        pytest.param({"Speed": "37"}, id="driving_electric"),
     ],
 )
 async def test_interval_adapts_to_activity(
@@ -146,8 +150,7 @@ async def test_interval_adapts_to_activity(
     vehicle_info: dict[str, Any],
     last_location: dict[str, Any],
     freezer: FrozenDateTimeFactory,
-    field: str,
-    value: Any,
+    fields: dict[str, Any],
 ) -> None:
     """Polls every minute while driving or charging, then back to idle.
 
@@ -155,12 +158,10 @@ async def test_interval_adapts_to_activity(
     speed alone counts as driving.
     """
     parked = dict(last_location, Speed="0", EngineOn="0")
-    active = dict(vehicle_info, **{field: value})
+    active = dict(vehicle_info, **fields)
     aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
     aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=active)
-    aioclient_mock.post(
-        f"{API_BASE_URL}lastLocation", json=dict(parked, **{field: value})
-    )
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=dict(parked, **fields))
     mock_config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
@@ -176,3 +177,21 @@ async def test_interval_adapts_to_activity(
 
     assert aioclient_mock.call_count == 2
     assert coordinator.update_interval == DEFAULT_SCAN_INTERVAL
+
+
+@pytest.mark.parametrize(
+    ("design", "expected"),
+    [
+        pytest.param("1", True, id="electric"),
+        pytest.param(2, True, id="electric_numeric"),
+        pytest.param("0", False, id="placeholder_values"),
+        pytest.param(None, False, id="not_reported"),
+    ],
+)
+def test_charging_needs_electric_design(design: Any, expected: bool) -> None:
+    """Only a car the server treats as electric can be charging.
+
+    A Tiggo 8 PHEV reports ElectricDesign 0 and placeholder Electric* fields.
+    """
+    data = {ELECTRIC_DESIGN_FIELD: design, "ElectricChargeStatus": 1}
+    assert is_charging(data) is expected

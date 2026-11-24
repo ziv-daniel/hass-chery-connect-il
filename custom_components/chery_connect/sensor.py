@@ -18,6 +18,7 @@ from homeassistant.const import (
     CONF_UNIT_OF_MEASUREMENT,
     PERCENTAGE,
     EntityCategory,
+    Platform,
     UnitOfElectricPotential,
     UnitOfLength,
     UnitOfPressure,
@@ -40,7 +41,12 @@ from .const import (
     EXTRA_TRIP,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity, async_add_when_reported, creates_entity
+from .entity import (
+    CheryConnectEntity,
+    async_add_when_reported,
+    async_remove_placeholder_entities,
+    creates_entity,
+)
 
 # The coordinator does all fetching; entities never poll on their own.
 PARALLEL_UPDATES = 0
@@ -53,6 +59,7 @@ class CherySensorDescription(SensorEntityDescription):
     source: str
     value_fn: Callable[[Any], Any] = parse_float
     presence: str | None = None
+    electric: bool = False
     attrs_fn: Callable[[Any], dict[str, Any]] | None = None
 
 
@@ -230,6 +237,7 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         key="electric_range",
         translation_key="electric_range",
         source="ElectricBatteryKM",
+        electric=True,
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.MEASUREMENT,
@@ -238,6 +246,7 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         key="ev_battery_level",
         translation_key="ev_battery_level",
         source="ElectricBatteryStatus",
+        electric=True,
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -247,6 +256,7 @@ SENSOR_DESCRIPTIONS: tuple[CherySensorDescription, ...] = (
         translation_key="charge_status",
         source="ElectricBatteryChargeStatusText",
         presence="ElectricBatteryStatus",
+        electric=True,
         value_fn=_text,
     ),
     _distance(
@@ -378,6 +388,9 @@ async def async_setup_entry(
     """Set up the sensors for the fields this vehicle reports."""
     _async_migrate_tyre_unit(hass, entry)
     coordinator = entry.runtime_data
+    async_remove_placeholder_entities(
+        hass, coordinator, Platform.SENSOR, SENSOR_DESCRIPTIONS
+    )
     async_add_when_reported(
         entry,
         coordinator,
