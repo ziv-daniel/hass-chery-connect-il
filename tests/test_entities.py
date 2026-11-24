@@ -427,3 +427,42 @@ async def test_tyre_low_hides_negative_recommendation(
     attributes = hass.states.get(TYRE_LOW).attributes
     assert attributes["recommended_front"] is None
     assert attributes["recommended_rear"] == 36.0
+
+
+async def test_field_reported_later_creates_entity(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A field empty at setup (charge status while parked) adds its entity later.
+
+    The entity is added once: further refreshes do not duplicate it.
+    """
+    status = "sensor.chery_tiggo_8_pro_charge_status"
+    low = TYRE_LOW
+    vehicle_info["ElectricBatteryChargeStatusText"] = ""
+    del vehicle_info["PSI_FRONT"]
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    assert hass.states.get(status) is None
+    assert hass.states.get(low) is None
+
+    charging = dict(vehicle_info, ElectricBatteryChargeStatusText="Charging")
+    charging["PSI_FRONT"] = "36"
+    for _ in range(2):
+        aioclient_mock.clear_requests()
+        aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=charging)
+        aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+        freezer.tick(DEFAULT_SCAN_INTERVAL)
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done()
+
+    assert hass.states.get(status).state == "Charging"
+    assert hass.states.get(low) is not None
+    assert len(hass.states.async_entity_ids("sensor")) == len(
+        set(hass.states.async_entity_ids("sensor"))
+    )

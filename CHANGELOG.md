@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0b2 (2026-11-24, beta)
+
+### Fixed
+- Faster refresh now also starts when the car moves. A plug-in hybrid
+  driving on electricity reports the engine as off, so the minute refresh
+  never started on electric drives.
+- Entities whose value is empty at startup are added once the car reports
+  it. The charge status, for example, is empty while parked, so it was never
+  created when Home Assistant started with the car unplugged.
+
 ## 0.3.0b1 (2026-11-24, beta)
 
 ### Added

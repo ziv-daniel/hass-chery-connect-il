@@ -40,7 +40,7 @@ from .const import (
     EXTRA_TRIP,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity, has_value
+from .entity import CheryConnectEntity, async_add_when_reported, has_value
 
 # The coordinator does all fetching; entities never poll on their own.
 PARALLEL_UPDATES = 0
@@ -376,9 +376,13 @@ async def async_setup_entry(
     """Set up the sensors for the fields this vehicle reports."""
     _async_migrate_tyre_unit(hass, entry)
     coordinator = entry.runtime_data
-    data = coordinator.data or {}
-    async_add_entities(
-        CheryConnectSensor(coordinator, description)
-        for description in SENSOR_DESCRIPTIONS
-        if description.source in _EXTRA_SOURCES or has_value(data, description.source)
+    async_add_when_reported(
+        entry,
+        coordinator,
+        SENSOR_DESCRIPTIONS,
+        lambda data, description: (
+            description.source in _EXTRA_SOURCES or has_value(data, description.source)
+        ),
+        lambda description: CheryConnectSensor(coordinator, description),
+        async_add_entities,
     )

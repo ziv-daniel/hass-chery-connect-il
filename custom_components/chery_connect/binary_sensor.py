@@ -22,7 +22,7 @@ from .const import (
     TYRE_AXLES,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
-from .entity import CheryConnectEntity, has_value
+from .entity import CheryConnectEntity, async_add_when_reported, has_value
 
 # The coordinator does all fetching; entities never poll on their own.
 PARALLEL_UPDATES = 0
@@ -148,9 +148,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up the binary sensors for the fields this vehicle reports."""
     coordinator = entry.runtime_data
-    data = coordinator.data or {}
-    async_add_entities(
-        CheryConnectBinarySensor(coordinator, description)
-        for description in BINARY_SENSOR_DESCRIPTIONS
-        if has_value(data, description.source)
+    async_add_when_reported(
+        entry,
+        coordinator,
+        BINARY_SENSOR_DESCRIPTIONS,
+        lambda data, description: has_value(data, description.source),
+        lambda description: CheryConnectBinarySensor(coordinator, description),
+        async_add_entities,
     )

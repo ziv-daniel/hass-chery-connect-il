@@ -136,6 +136,7 @@ async def test_engine_on_taken_from_newer_location(
     [
         pytest.param("EngineOn", "1", id="driving"),
         pytest.param("ElectricChargeStatus", 1, id="charging"),
+        pytest.param("Speed", "37", id="driving_electric"),
     ],
 )
 async def test_interval_adapts_to_activity(
@@ -148,11 +149,18 @@ async def test_interval_adapts_to_activity(
     field: str,
     value: Any,
 ) -> None:
-    """Polls every minute while driving or charging, then back to idle."""
+    """Polls every minute while driving or charging, then back to idle.
+
+    A plug-in hybrid on electricity reports EngineOn off while it moves, so
+    speed alone counts as driving.
+    """
+    parked = dict(last_location, Speed="0", EngineOn="0")
     active = dict(vehicle_info, **{field: value})
     aioclient_mock.get(f"{API_BASE_URL}TestToken", json={})
     aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=active)
-    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    aioclient_mock.post(
+        f"{API_BASE_URL}lastLocation", json=dict(parked, **{field: value})
+    )
     mock_config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
@@ -161,7 +169,7 @@ async def test_interval_adapts_to_activity(
 
     aioclient_mock.clear_requests()
     aioclient_mock.post(f"{API_BASE_URL}VehicleInfo", json=vehicle_info)
-    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=last_location)
+    aioclient_mock.post(f"{API_BASE_URL}lastLocation", json=parked)
     freezer.tick(ACTIVE_SCAN_INTERVAL)
     async_fire_time_changed(hass)
     await hass.async_block_till_done()

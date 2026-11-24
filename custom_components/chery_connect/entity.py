@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity import Entity, EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -17,6 +21,37 @@ def has_value(data: dict[str, Any], source: str) -> bool:
     Used at setup so a petrol car gets no charging or electric-range entity.
     """
     return data.get(source) not in (None, "")
+
+
+def async_add_when_reported[DescriptionT: EntityDescription](
+    entry: ConfigEntry,
+    coordinator: CheryConnectCoordinator,
+    descriptions: Iterable[DescriptionT],
+    is_reported: Callable[[dict[str, Any], DescriptionT], bool],
+    make_entity: Callable[[DescriptionT], Entity],
+    async_add_entities: Callable[[Iterable[Entity]], None],
+) -> None:
+    """Add each entity once its field is reported, now or on a later refresh.
+
+    Fields such as the charge status text are empty while the car is parked
+    and only show up while it charges, so checking the first refresh alone
+    would never create them.
+    """
+    pending = list(descriptions)
+
+    @callback
+    def _add_reported() -> None:
+        data = coordinator.data or {}
+        reported = [d for d in pending if is_reported(data, d)]
+        if not reported:
+            return
+        for description in reported:
+            pending.remove(description)
+        async_add_entities(make_entity(d) for d in reported)
+
+    _add_reported()
+    if pending:
+        entry.async_on_unload(coordinator.async_add_listener(_add_reported))
 
 
 class CheryConnectEntity(CoordinatorEntity[CheryConnectCoordinator]):
