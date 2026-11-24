@@ -50,8 +50,9 @@ from .const import (
     DOMAIN,
     ERROR_BLOCKED,
     ERROR_CANNOT_CONNECT,
-    ERROR_INVALID_INPUT,
     ERROR_INVALID_OTP,
+    ERROR_INVALID_PHONE,
+    ERROR_INVALID_V_NUMBER,
     ERROR_UNKNOWN,
     IL_COUNTRY_CODE,
     MAX_SCAN_INTERVAL,
@@ -76,6 +77,23 @@ STEP_OTP_SCHEMA = vol.Schema(
         vol.Optional(CONF_RESEND, default=False): bool,
     }
 )
+
+
+# What the user may type: digits and dashes only (the phone may also start
+# with "+" for +972). Letters, spaces and other symbols are rejected rather
+# than silently stripped, so a typo never reaches the server.
+_V_NUMBER_RE = re.compile(r"[0-9-]*[0-9][0-9-]*")
+_PHONE_RE = re.compile(r"\+?[0-9-]*[0-9][0-9-]*")
+
+
+def is_valid_v_number(value: str) -> bool:
+    """Return True if the plate has only digits and dashes."""
+    return _V_NUMBER_RE.fullmatch(value.strip()) is not None
+
+
+def is_valid_phone(value: str) -> bool:
+    """Return True if the phone has only digits and dashes (optional leading +)."""
+    return _PHONE_RE.fullmatch(value.strip()) is not None
 
 
 def normalize_v_number(value: str) -> str:
@@ -160,11 +178,15 @@ class CheryConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         """Step 1: phone + vehicle number, request the SMS OTP."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._mobile_phone = normalize_phone(user_input[CONF_MOBILE_PHONE])
-            self._v_number = normalize_v_number(user_input[CONF_V_NUMBER])
-            if not self._mobile_phone or not self._v_number:
-                errors["base"] = ERROR_INVALID_INPUT
-            else:
+            phone = str(user_input[CONF_MOBILE_PHONE])
+            v_number = str(user_input[CONF_V_NUMBER])
+            if not is_valid_phone(phone):
+                errors[CONF_MOBILE_PHONE] = ERROR_INVALID_PHONE
+            if not is_valid_v_number(v_number):
+                errors[CONF_V_NUMBER] = ERROR_INVALID_V_NUMBER
+            if not errors:
+                self._mobile_phone = normalize_phone(phone)
+                self._v_number = normalize_v_number(v_number)
                 await self.async_set_unique_id(self._v_number)
                 self._abort_if_unique_id_configured()
                 if (error := await self._send_otp()) is None:

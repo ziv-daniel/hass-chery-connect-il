@@ -9,6 +9,7 @@ with a new OTP. Never log the token, phone number or plate number.
 from __future__ import annotations
 
 import logging
+import time
 from http import HTTPStatus
 from typing import Any
 
@@ -64,6 +65,29 @@ def parse_odometer(value: Any) -> float | None:
     return parse_float(value)
 
 
+def _elapsed_ms(start: float) -> float:
+    """Return milliseconds since a time.monotonic() start."""
+    return (time.monotonic() - start) * 1000
+
+
+def _log_status(method: str, endpoint: str, status: int, start: float) -> None:
+    """Log the HTTP status and duration of one API call."""
+    _LOGGER.debug(
+        "API %s %s: HTTP %s in %.0f ms", method, endpoint, status, _elapsed_ms(start)
+    )
+
+
+def _log_failure(method: str, endpoint: str, err: Exception, start: float) -> None:
+    """Log a network failure (timeout, connection error) of one API call."""
+    _LOGGER.debug(
+        "API %s %s failed after %.0f ms: %s",
+        method,
+        endpoint,
+        _elapsed_ms(start),
+        repr(err),
+    )
+
+
 class CheryConnectApiClient:
     """Async client for the Pointer/Carasso Chery Connect API."""
 
@@ -105,8 +129,20 @@ class CheryConnectApiClient:
         *,
         auth: bool = True,
     ) -> dict[str, Any]:
-        """Send a request to {API}{endpoint} and return the parsed JSON object."""
+        """Send a request to {API}{endpoint} and return the parsed JSON object.
+
+        Every call is logged at debug level: method, endpoint, the request
+        field names (never values: they hold the phone, plate and code),
+        status, duration and the response field names.
+        """
         url = f"{API_BASE_URL}{endpoint}"
+        _LOGGER.debug(
+            "API call %s %s, request fields: %s",
+            method,
+            endpoint,
+            sorted(data) if data else "none",
+        )
+        start = time.monotonic()
         try:
             async with self._session.request(
                 method,
@@ -115,15 +151,27 @@ class CheryConnectApiClient:
                 headers=self._headers(auth=auth),
                 timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
             ) as resp:
+                _log_status(method, endpoint, resp.status, start)
                 self._check_status(resp, endpoint)
                 payload = await resp.json(content_type=None)
         except (aiohttp.ClientError, TimeoutError) as err:
+            _log_failure(method, endpoint, err, start)
             raise CheryApiError(f"Request to {endpoint} failed: {err}") from err
         except ValueError as err:
             # An HTML maintenance or WAF page instead of JSON.
+            _LOGGER.debug("API %s %s: response is not JSON", method, endpoint)
             raise CheryApiError(f"Invalid JSON from {endpoint}") from err
         if not isinstance(payload, dict):
+            _LOGGER.debug(
+                "API %s %s: expected a JSON object, got %s",
+                method,
+                endpoint,
+                type(payload).__name__,
+            )
             raise CheryApiError(f"Unexpected response from {endpoint}")
+        _LOGGER.debug(
+            "API %s %s: %d fields: %s", method, endpoint, len(payload), sorted(payload)
+        )
         return payload
 
     async def _post(
@@ -131,10 +179,6 @@ class CheryConnectApiClient:
     ) -> dict[str, Any]:
         """POST a JSON body."""
         return await self._request("POST", endpoint, data or {}, auth=auth)
-
-    async def _get(self, endpoint: str) -> dict[str, Any]:
-        """GET with the Bearer token."""
-        return await self._request("GET", endpoint)
 
     async def request_otp(self, mobile_phone: str, v_number: str) -> dict[str, Any]:
         """Ask the server to send an SMS OTP.
@@ -148,6 +192,7 @@ class CheryConnectApiClient:
             {"MobilePhone": mobile_phone, "VNumber": v_number, "appid": APPID},
             auth=False,
         )
+        _LOGGER.debug("SMS code request answered rescode=%s", payload.get("rescode"))
         if payload.get("rescode") == -2:
             raise BlockedError("Login refused by the server")
         return payload
@@ -165,13 +210,34 @@ class CheryConnectApiClient:
         )
         token = payload.get("token")
         if not isinstance(token, str) or len(token) <= MIN_TOKEN_LENGTH:
+            _LOGGER.debug("SMS code check returned no usable token")
             raise InvalidOtpError("No usable token returned for the OTP code")
         self._token = token
         return token
 
     async def test_token(self) -> bool:
-        """Validate the stored token with TestToken (GET)."""
-        await self._get(ENDPOINT_TEST_TOKEN)
+        """Validate the stored token with TestToken (GET).
+
+        Only the status matters: 200 means the token is valid and 401
+        means it is dead. The body is not a JSON object (it can be a bare
+        value or plain text), so it is never parsed.
+        """
+        url = f"{API_BASE_URL}{ENDPOINT_TEST_TOKEN}"
+        _LOGGER.debug("API call GET %s (token check)", ENDPOINT_TEST_TOKEN)
+        start = time.monotonic()
+        try:
+            async with self._session.get(
+                url,
+                headers=self._headers(auth=True),
+                timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
+            ) as resp:
+                _log_status("GET", ENDPOINT_TEST_TOKEN, resp.status, start)
+                self._check_status(resp, ENDPOINT_TEST_TOKEN)
+        except (aiohttp.ClientError, TimeoutError) as err:
+            _log_failure("GET", ENDPOINT_TEST_TOKEN, err, start)
+            raise CheryApiError(
+                f"Request to {ENDPOINT_TEST_TOKEN} failed: {err}"
+            ) from err
         return True
 
     async def get_vehicle_info(self) -> dict[str, Any]:

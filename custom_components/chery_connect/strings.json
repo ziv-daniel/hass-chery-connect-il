@@ -10,7 +10,8 @@
       "cannot_connect": "Could not reach the Chery Connect service. Check the connection and try again.",
       "invalid_otp": "The SMS code was rejected. Request a new code and try again.",
       "unknown": "An unknown error occurred.",
-      "invalid_input": "Enter a valid phone number and vehicle number."
+      "invalid_phone": "Enter the phone number using digits and dashes only, for example 050-1234567.",
+      "invalid_v_number": "Enter the vehicle number using digits and dashes only, for example 12-345-67."
     },
     "step": {
       "otp": {
@@ -32,8 +33,8 @@
         "description": "Enter the mobile phone number and vehicle number you use in the Chery Connect app. An SMS code will be sent to this phone.",
         "title": "Connect your Chery",
         "data_description": {
-          "mobile_phone": "For example 050-1234567 or +972 50 123 4567.",
-          "v_number": "The licence plate number, with or without dashes."
+          "mobile_phone": "Digits and dashes only, for example 050-1234567.",
+          "v_number": "The licence plate number: digits and dashes only, for example 12-345-67."
         }
       },
       "reauth_confirm": {

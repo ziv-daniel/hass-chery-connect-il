@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.2 (2026-11-24)
+
+### Fixed
+- Setup no longer fails with "Unexpected response from TestToken": the token
+  check now looks only at the HTTP status, not the response body.
+
+### Added
+- Logging: setup logs the refresh interval and every scheduled refresh logs
+  one summary line (info, always visible). Debug logging also records
+  every API call (endpoint, status, duration, response field names), each
+  scheduled refresh, and why a call failed. The token, phone, plate, SMS code
+  and coordinates are never logged.
+
+### Changed
+- The phone and vehicle number fields accept only digits and dashes (the
+  phone may start with +). Letters, spaces or other symbols show an error on
+  that field instead of being silently removed.
+
 ## 0.2.1 (2026-11-24)
 
 ### Changed

@@ -1,5 +1,8 @@
 """Tests for the Chery Connect API client."""
 
+from typing import Any
+
+import aiohttp
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -120,6 +123,49 @@ async def test_test_token_uses_get(
 
     assert await client.test_token() is True
     assert aioclient_mock.mock_calls[0][0] == "GET"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"json": True}, id="json_true"),
+        pytest.param({"json": "OK"}, id="json_string"),
+        pytest.param({"json": [1]}, id="json_list"),
+        pytest.param({"text": "OK"}, id="plain_text"),
+        pytest.param({"text": ""}, id="empty"),
+    ],
+)
+async def test_test_token_ignores_body(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, body: dict[str, Any]
+) -> None:
+    """A 200 from TestToken is valid whatever the body (v0.2.1 setup failure)."""
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", **body)
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    assert await client.test_token() is True
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "error"),
+    [
+        pytest.param({"status": 401}, InvalidAuthError, id="401"),
+        pytest.param({"status": 503}, CheryApiError, id="503"),
+        pytest.param({"exc": TimeoutError}, CheryApiError, id="timeout"),
+        pytest.param({"exc": aiohttp.ClientError}, CheryApiError, id="client_error"),
+    ],
+)
+async def test_test_token_errors(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    kwargs: dict[str, Any],
+    error: type[Exception],
+) -> None:
+    """401 is a dead token; other failures are API errors."""
+    aioclient_mock.get(f"{API_BASE_URL}TestToken", **kwargs)
+    client = CheryConnectApiClient(async_get_clientsession(hass), TOKEN)
+
+    with pytest.raises(error):
+        await client.test_token()
 
 
 @pytest.mark.parametrize(
