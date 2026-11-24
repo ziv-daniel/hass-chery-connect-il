@@ -1,4 +1,4 @@
-# Chery Connect for Home Assistant
+# Chery Car Connect IL for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 [![GitHub release](https://img.shields.io/github/v/release/ziv-daniel/hass-chery-connect-il)](https://github.com/ziv-daniel/hass-chery-connect-il/releases)
@@ -21,7 +21,7 @@ and an SMS code, the same way as in the app.
 
 Or in HACS → ⋮ → **Custom repositories**, add
 `https://github.com/ziv-daniel/hass-chery-connect-il` as an **Integration**.
-Download **Chery Connect**, then restart Home Assistant.
+Download **Chery Car Connect IL**, then restart Home Assistant.
 
 ### Manual
 
@@ -30,9 +30,9 @@ Copy `custom_components/chery_connect` into your Home Assistant
 
 ## Setup
 
-[![Open your Home Assistant instance and start setting up Chery Connect.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=chery_connect)
+[![Open your Home Assistant instance and start setting up Chery Car Connect IL.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=chery_connect)
 
-1. **Settings → Devices & services → Add integration → Chery Connect**.
+1. **Settings → Devices & services → Add integration → Chery Car Connect IL**.
 2. Enter the mobile number and vehicle (plate) number registered in the
    app.
 3. Enter the SMS code.
@@ -71,7 +71,7 @@ The log always shows one line at startup with the refresh interval and one
 line per scheduled refresh. Debug logging adds a line for every API call (endpoint, HTTP status, duration,
 which fields came back) and for every scheduled refresh. These lines never
 include the token, phone, plate, SMS code or coordinates. To turn it on, go
-to **Settings → Devices & services → Chery Connect → ⋮ → Enable debug
+to **Settings → Devices & services → Chery Car Connect IL → ⋮ → Enable debug
 logging**, or add:
 
 ```yaml

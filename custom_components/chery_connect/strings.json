@@ -50,7 +50,7 @@
           "scan_interval": "Refresh interval (minutes)"
         },
         "description": "How often to refresh the vehicle data. Minimum 5 minutes.",
-        "title": "Chery Connect options"
+        "title": "Chery Car Connect IL options"
       }
     }
   },

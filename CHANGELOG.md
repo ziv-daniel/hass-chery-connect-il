@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 (2026-11-24)
+
+### Changed
+- Renamed the integration display name to "Chery Car Connect IL" (HACS,
+  the Add integration list and the options dialog). The domain stays
+  `chery_connect`, so existing setups keep working with no changes.
+
 ## 0.2.2 (2026-11-24)
 
 ### Fixed
