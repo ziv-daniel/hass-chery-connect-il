@@ -10,6 +10,10 @@ CONF_MOBILE_PHONE: Final = "mobile_phone"
 CONF_V_NUMBER: Final = "v_number"
 CONF_TOKEN: Final = "token"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+# Optional second login to the iPointer app's API, the only source of real
+# battery and charging data for cars the Chery API sends placeholders for.
+CONF_IPOINTER_TOKEN: Final = "ipointer_token"
+CONF_IPOINTER_REFRESH_TOKEN: Final = "ipointer_refresh_token"
 
 # Config flow form fields (not stored in the entry).
 CONF_CODE: Final = "code"
@@ -25,6 +29,12 @@ VISIBLE_PLATE_DIGITS: Final = 3
 # API configuration, taken from the Chery Connect v1.5.5 app.
 API_BASE_URL: Final = "https://iot.pointer4u.co.il/iservices/carassoApp/api/"
 APPID: Final = 34
+# The iPointer app (www.iPointer4U.co.il 4.5.2) uses the same backend and
+# login, under its own API path and app id.
+IPOINTER_API_BASE_URL: Final = (
+    "https://iot.pointer4u.co.il/iservices/iPointerAPIV11/api/"
+)
+IPOINTER_APPID: Final = 5
 API_TIMEOUT: Final = 15
 # The app accepts a login only when the returned token is longer than this.
 MIN_TOKEN_LENGTH: Final = 10
@@ -53,6 +63,8 @@ ENDPOINT_LOGIN_OTP_CHECK: Final = "login/otpCheck"
 ENDPOINT_MY_CAR: Final = "myCar"
 ENDPOINT_HISTORY: Final = "getHistory"
 ENDPOINT_MESSAGES: Final = "getMessages"
+# iPointer only: a new token for the refresh token sent as the Bearer.
+ENDPOINT_REFRESH_TOKEN: Final = "refresh-token"
 
 # myCar tabs, as the app's personal-zone page requests them.
 MY_CAR_TAB_DISTANCE: Final = 0
@@ -68,6 +80,18 @@ CHARGING_ON_VALUES: Final = frozenset({"1"})
 # values in the Electric* fields (88 %, 160 km, never charging).
 ELECTRIC_DESIGN_FIELD: Final = "ElectricDesign"
 ELECTRIC_DESIGNS: Final = frozenset({"1", "2"})
+
+# iPointer's VehicleInfo carries the real battery data in EVTile, a JSON
+# string holding a one-item list. Its fields are copied onto the Chery
+# Electric* fields the entities already read; a field iPointer does not
+# send becomes None so a placeholder never shows.
+IPOINTER_EV_TILE_FIELD: Final = "EVTile"
+IPOINTER_EV_FIELDS: Final = (
+    ("ElectricBatteryStatus", "electric_State_OF_Charge"),
+    ("ElectricBatteryKM", "electric_Range_Vehicle_in_KM"),
+    ("ElectricChargeStatus", "electric_Cable_Charger_Status"),
+    ("ElectricBatteryChargeStatusText", "EstChargeEndDsiplay"),
+)
 
 # Recommended-pressure field and the tyres it applies to.
 TYRE_AXLES: Final = (
@@ -93,6 +117,12 @@ EXTRA_SPEEDING_EVENTS: Final = "speeding_events"
 EXTRA_ACCELERATION_EVENTS: Final = "harsh_acceleration_events"
 EXTRA_BRAKING_EVENTS: Final = "harsh_braking_events"
 EXTRA_NEW_DRIVER_ALERTS: Final = "new_driver_alerts"
+# Set to "ipointer" when the battery fields come from iPointer.
+EXTRA_EV_SOURCE: Final = "ev_source"
+EV_SOURCE_IPOINTER: Final = "ipointer"
+
+# Repair issue raised when the iPointer login stops working.
+ISSUE_IPOINTER_AUTH: Final = "ipointer_auth_failed"
 
 # lastLocation fields copied onto VehicleInfo when newer. The app copies all
 # but EngineOn (it uses that one for the map icon); it is fresher than the

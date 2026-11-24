@@ -59,7 +59,8 @@ has no charging or electric range entity. Electric range, EV battery, charge
 status and charging exist only for cars the server treats as electric (the
 ones the app shows a battery screen for). For other cars, including the
 Tiggo 8 PHEV, the server sends fixed placeholder values (88 %, 160 km, never
-charging), so they are left out. The UI is in English and Hebrew.
+charging), so they are left out unless you connect iPointer (below). The UI
+is in English and Hebrew.
 There are no remote commands (lock, start), because the API doesn't offer any.
 
 - **Tyre pressure low** is on when any tyre is below the recommended
@@ -73,6 +74,21 @@ There are no remote commands (lock, start), because the API doesn't offer any.
   fires a `chery_connect_driver_alert` event (`config_entry_id`, `message`,
   `time`) for automations. Alerts already in the report at startup don't
   fire.
+
+## Real battery data from iPointer (optional)
+
+If your car also has a Pointer iPointer service, the iPointer app shows the
+real battery level, electric range and charging state, including for cars
+the Chery Connect service sends placeholder values for. To use them, open
+the integration's **Configure** options, choose **Connect iPointer** and
+enter the SMS code iPointer sends to the phone already configured. The EV
+battery, electric range, charging and charge status entities then come from
+iPointer; charge status shows the time left to a full charge. Signing in
+here may sign the iPointer app on your phone out.
+
+If iPointer is unreachable, those entities show unknown rather than the
+placeholder values. If its login expires, a repair issue asks you to connect
+again. **Disconnect iPointer** in the same options removes the login.
 
 ## Re-authentication
 

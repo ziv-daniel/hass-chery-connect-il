@@ -8,6 +8,7 @@ with a new OTP. Never log the token, phone number or plate number.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import datetime
@@ -28,8 +29,12 @@ from .const import (
     ENDPOINT_LOGIN_OTP_CHECK,
     ENDPOINT_MESSAGES,
     ENDPOINT_MY_CAR,
+    ENDPOINT_REFRESH_TOKEN,
     ENDPOINT_TEST_TOKEN,
     ENDPOINT_VEHICLE_INFO,
+    IPOINTER_API_BASE_URL,
+    IPOINTER_APPID,
+    IPOINTER_EV_TILE_FIELD,
     MIN_TOKEN_LENGTH,
 )
 
@@ -84,6 +89,23 @@ def parse_odometer(value: Any) -> float | None:
     return parse_float(value)
 
 
+def parse_ev_tile(vehicle_info: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the battery tile from an iPointer VehicleInfo, else None.
+
+    The app reads ``JSON.parse(VehicleInfo.EVTile)[0]``. A list or object
+    that arrives already decoded is accepted too.
+    """
+    tile: Any = vehicle_info.get(IPOINTER_EV_TILE_FIELD)
+    if isinstance(tile, str):
+        try:
+            tile = json.loads(tile)
+        except ValueError:
+            return None
+    if isinstance(tile, list):
+        tile = tile[0] if tile else None
+    return tile if isinstance(tile, dict) else None
+
+
 def _elapsed_ms(start: float) -> float:
     """Return milliseconds since a time.monotonic() start."""
     return (time.monotonic() - start) * 1000
@@ -108,14 +130,25 @@ def _log_failure(method: str, endpoint: str, err: Exception, start: float) -> No
 
 
 class CheryConnectApiClient:
-    """Async client for the Pointer/Carasso Chery Connect API."""
+    """Async client for the Pointer/Carasso Chery Connect API.
+
+    The same client talks to the iPointer app's API (``ipointer=True``): it
+    shares the backend, the login and the request format.
+    """
 
     def __init__(
-        self, session: aiohttp.ClientSession, token: str | None = None
+        self,
+        session: aiohttp.ClientSession,
+        token: str | None = None,
+        *,
+        ipointer: bool = False,
     ) -> None:
         """Initialize the client."""
         self._session = session
         self._token = token
+        self._base_url = IPOINTER_API_BASE_URL if ipointer else API_BASE_URL
+        self._appid = IPOINTER_APPID if ipointer else APPID
+        self.refresh_token: str | None = None
 
     @property
     def token(self) -> str | None:
@@ -154,7 +187,7 @@ class CheryConnectApiClient:
         field names (never values: they hold the phone, plate and code),
         status, duration and the response field names.
         """
-        url = f"{API_BASE_URL}{endpoint}"
+        url = f"{self._base_url}{endpoint}"
         _LOGGER.debug(
             "API call %s %s, request fields: %s",
             method,
@@ -208,7 +241,7 @@ class CheryConnectApiClient:
         """
         payload = await self._post(
             ENDPOINT_LOGIN_OTP,
-            {"MobilePhone": mobile_phone, "VNumber": v_number, "appid": APPID},
+            {"MobilePhone": mobile_phone, "VNumber": v_number, "appid": self._appid},
             auth=False,
         )
         _LOGGER.debug("SMS code request answered rescode=%s", payload.get("rescode"))
@@ -232,6 +265,25 @@ class CheryConnectApiClient:
             _LOGGER.debug("SMS code check returned no usable token")
             raise InvalidOtpError("No usable token returned for the OTP code")
         self._token = token
+        refresh = payload.get("refresh_token")
+        self.refresh_token = refresh if isinstance(refresh, str) and refresh else None
+        return token
+
+    async def refresh(self, refresh_token: str) -> str:
+        """Get a new token with the refresh token (iPointer only).
+
+        The refresh token is sent as the Bearer, as the app does.
+        """
+        old_token, self._token = self._token, refresh_token
+        try:
+            payload = await self._post(ENDPOINT_REFRESH_TOKEN, {})
+        finally:
+            self._token = old_token
+        token = payload.get("token")
+        if not isinstance(token, str) or len(token) <= MIN_TOKEN_LENGTH:
+            _LOGGER.debug("Token refresh returned no usable token")
+            raise InvalidAuthError("No usable token returned by the refresh")
+        self._token = token
         return token
 
     async def test_token(self) -> bool:
@@ -241,7 +293,7 @@ class CheryConnectApiClient:
         means it is dead. The body is not a JSON object (it can be a bare
         value or plain text), so it is never parsed.
         """
-        url = f"{API_BASE_URL}{ENDPOINT_TEST_TOKEN}"
+        url = f"{self._base_url}{ENDPOINT_TEST_TOKEN}"
         _LOGGER.debug("API call GET %s (token check)", ENDPOINT_TEST_TOKEN)
         start = time.monotonic()
         try:

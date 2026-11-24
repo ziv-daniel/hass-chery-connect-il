@@ -12,12 +12,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import CheryApiError, CheryConnectApiClient, InvalidAuthError
 from .const import (
+    CONF_IPOINTER_TOKEN,
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     DEFAULT_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
-from .coordinator import CheryConfigEntry, CheryConnectCoordinator
+from .coordinator import (
+    CheryConfigEntry,
+    CheryConnectCoordinator,
+    delete_ev_auth_issue,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,13 +65,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> boo
         entry.title,
         interval,
     )
-    coordinator = CheryConnectCoordinator(hass, api, entry, interval)
+    ev_api = None
+    if not (ipointer_token := entry.data.get(CONF_IPOINTER_TOKEN)):
+        # Disconnected: a login issue raised before no longer applies.
+        delete_ev_auth_issue(hass, entry)
+    else:
+        _LOGGER.debug("Setup %s: battery data from iPointer", entry.title)
+        ev_api = CheryConnectApiClient(
+            async_get_clientsession(hass), ipointer_token, ipointer=True
+        )
+    coordinator = CheryConnectCoordinator(hass, api, entry, interval, ev_api)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> None:
+    """Remove the entry's repair issue with the entry."""
+    delete_ev_auth_issue(hass, entry)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> bool:
