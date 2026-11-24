@@ -197,3 +197,60 @@ async def test_fields_dropped_later_become_unknown(
 
     for entity_id in EXPECTED:
         assert hass.states.get(entity_id).state == "unknown", entity_id
+
+
+TYRE_FL = "sensor.chery_tiggo_8_pro_tyre_pressure_front_left"
+
+
+@pytest.mark.parametrize(
+    ("options", "expected_unit", "expected_precision"),
+    [
+        pytest.param(
+            {"sensor.private": {"suggested_unit_of_measurement": "kPa"}},
+            "psi",
+            0,
+            id="metric_default_migrates",
+        ),
+        pytest.param(
+            {
+                "sensor": {"unit_of_measurement": "bar"},
+                "sensor.private": {"suggested_unit_of_measurement": "kPa"},
+            },
+            "bar",
+            1,
+            id="user_choice_kept",
+        ),
+    ],
+)
+async def test_tyre_unit_migration(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_api: AiohttpClientMocker,
+    entity_registry: er.EntityRegistry,
+    options: dict[str, dict[str, str]],
+    expected_unit: str,
+    expected_precision: int,
+) -> None:
+    """Tyre sensors registered in kPa (pre-0.2.4) switch to PSI unless the user chose a unit."""
+    mock_config_entry.add_to_hass(hass)
+    entity_registry.async_get_or_create(
+        "sensor",
+        "chery_connect",
+        f"{V_NUMBER}_tyre_pressure_front_left",
+        config_entry=mock_config_entry,
+        suggested_object_id="chery_tiggo_8_pro_tyre_pressure_front_left",
+    )
+    for domain, domain_options in options.items():
+        entity_registry.async_update_entity_options(TYRE_FL, domain, domain_options)
+
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(TYRE_FL)
+    assert state.attributes[ATTR_UNIT_OF_MEASUREMENT] == expected_unit
+    assert (
+        entity_registry.async_get(TYRE_FL).options["sensor"][
+            "suggested_display_precision"
+        ]
+        == expected_precision
+    )

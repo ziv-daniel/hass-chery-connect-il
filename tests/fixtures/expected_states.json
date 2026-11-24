@@ -53,22 +53,22 @@
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_front_left": {
     "device_class": "pressure",
-    "state": "241.316495",
-    "unit": "kPa"
+    "state": "35.0",
+    "unit": "psi"
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_front_right": {
     "device_class": "pressure",
-    "state": "244.7638735",
-    "unit": "kPa"
+    "state": "35.5",
+    "unit": "psi"
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_rear_left": {
     "device_class": "pressure",
-    "state": "234.421738",
-    "unit": "kPa"
+    "state": "34.0",
+    "unit": "psi"
   },
   "sensor.chery_tiggo_8_pro_tyre_pressure_rear_right": {
     "device_class": "pressure",
-    "state": "237.8691165",
-    "unit": "kPa"
+    "state": "34.5",
+    "unit": "psi"
   }
 }

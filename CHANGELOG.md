@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 (2026-11-24)
+
+### Changed
+- Tyre pressure is shown in PSI, the unit the car reports and the one used at
+  Israeli gas stations, with no decimals. Metric installs used to convert it to
+  kPa (e.g. 262.000766 kPa for 38 PSI). Existing sensors switch automatically
+  unless you picked a unit yourself in the entity settings.
+
 ## 0.2.3 (2026-11-24)
 
 ### Changed

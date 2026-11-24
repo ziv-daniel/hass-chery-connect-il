@@ -14,6 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    CONF_UNIT_OF_MEASUREMENT,
     PERCENTAGE,
     EntityCategory,
     UnitOfElectricPotential,
@@ -21,7 +22,8 @@ from homeassistant.const import (
     UnitOfPressure,
     UnitOfSpeed,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
@@ -74,6 +76,8 @@ def _tyre(key: str, source: str) -> CherySensorDescription:
         source=source,
         device_class=SensorDeviceClass.PRESSURE,
         native_unit_of_measurement=UnitOfPressure.PSI,
+        suggested_unit_of_measurement=UnitOfPressure.PSI,
+        suggested_display_precision=0,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
     )
@@ -177,12 +181,41 @@ class CheryConnectSensor(CheryConnectEntity, SensorEntity):
         )
 
 
+@callback
+def _async_migrate_tyre_unit(hass: HomeAssistant, entry: CheryConfigEntry) -> None:
+    """Show existing tyre sensors in PSI.
+
+    Up to 0.2.3 the suggested unit followed the unit system, so metric
+    installs stored kPa. A unit the user picked themselves is kept.
+    """
+    registry = er.async_get(hass)
+    tyre_ids = {
+        f"{entry.unique_id}_{description.key}"
+        for description in SENSOR_DESCRIPTIONS
+        if description.suggested_unit_of_measurement == UnitOfPressure.PSI
+    }
+    for reg_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if reg_entry.domain != "sensor" or reg_entry.unique_id not in tyre_ids:
+            continue
+        if CONF_UNIT_OF_MEASUREMENT in reg_entry.options.get("sensor", {}):
+            continue
+        private: dict[str, Any] = dict(reg_entry.options.get("sensor.private", {}))
+        if private.get("suggested_unit_of_measurement") == UnitOfPressure.PSI:
+            continue
+        registry.async_update_entity_options(
+            reg_entry.entity_id,
+            "sensor.private",
+            {**private, "suggested_unit_of_measurement": UnitOfPressure.PSI},
+        )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CheryConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the sensors for the fields this vehicle reports."""
+    _async_migrate_tyre_unit(hass, entry)
     coordinator = entry.runtime_data
     data = coordinator.data or {}
     async_add_entities(
