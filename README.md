@@ -64,10 +64,15 @@ Home Assistant shows **Re-authenticate** on the integration under
 
 When you report a bug, attach the diagnostics file (device page → ⋮ →
 **Download diagnostics**). The token, phone, plate, coordinates and address
-are redacted in that file. Don't post raw logs or `.storage` files, because
-they contain your token.
+are redacted in that file. Don't post `.storage` files, because they contain
+your token.
 
-To turn on debug logging:
+At startup the log shows one info line with the refresh interval. Debug
+logging adds a line for every API call (endpoint, HTTP status, duration,
+which fields came back) and for every scheduled refresh. These lines never
+include the token, phone, plate, SMS code or coordinates. To turn it on, go
+to **Settings → Devices & services → Chery Connect → ⋮ → Enable debug
+logging**, or add:
 
 ```yaml
 logger:

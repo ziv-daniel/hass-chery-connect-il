@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from homeassistant.const import Platform
@@ -17,6 +18,8 @@ from .const import (
     MIN_SCAN_INTERVAL,
 )
 from .coordinator import CheryConfigEntry, CheryConnectCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -41,14 +44,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> boo
     api = CheryConnectApiClient(async_get_clientsession(hass), entry.data[CONF_TOKEN])
 
     # The app has no refresh token: a rejected token can only be fixed by reauth.
+    _LOGGER.debug("Setting up %s: checking the stored token", entry.title)
     try:
         await api.test_token()
     except InvalidAuthError as err:
+        _LOGGER.debug("Setup %s: token rejected, starting reauth", entry.title)
         raise ConfigEntryAuthFailed("Chery Connect token rejected") from err
     except CheryApiError as err:
         raise ConfigEntryNotReady(f"Chery Connect is unreachable: {err}") from err
 
-    coordinator = CheryConnectCoordinator(hass, api, entry, _scan_interval(entry))
+    interval = _scan_interval(entry)
+    _LOGGER.info(
+        "Chery Connect %s: token valid, refreshing VehicleInfo + lastLocation every %s",
+        entry.title,
+        interval,
+    )
+    coordinator = CheryConnectCoordinator(hass, api, entry, interval)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 

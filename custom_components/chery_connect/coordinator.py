@@ -81,16 +81,32 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             UpdateFailed: For any other API or network failure.
 
         """
+        _LOGGER.debug(
+            "Scheduled refresh started (every %s, entry %s)",
+            self.update_interval,
+            self.config_entry.title,
+        )
         try:
             vehicle = await self.api.get_vehicle_info()
             location = await self.api.get_last_location()
         except InvalidAuthError as err:
+            _LOGGER.debug("Refresh: token rejected, starting re-authentication")
             raise ConfigEntryAuthFailed("Chery Connect token rejected") from err
         except CheryApiError as err:
+            _LOGGER.debug("Refresh failed: %s", err)
             raise UpdateFailed(f"Failed to fetch Chery data: {err}") from err
 
         merged: dict[str, Any] = dict(vehicle)
-        if _is_newer(location.get("GPSDatetime"), vehicle.get("GPSDatetime")):
+        use_location = _is_newer(
+            location.get("GPSDatetime"), vehicle.get("GPSDatetime")
+        )
+        _LOGGER.debug(
+            "Refresh done: position from %s (GPS time VehicleInfo=%s, lastLocation=%s)",
+            "lastLocation" if use_location else "VehicleInfo",
+            vehicle.get("GPSDatetime"),
+            location.get("GPSDatetime"),
+        )
+        if use_location:
             for field in LOCATION_OVERLAY_FIELDS:
                 if field in location:
                     merged[field] = location[field]
