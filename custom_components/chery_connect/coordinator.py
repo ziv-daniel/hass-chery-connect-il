@@ -100,8 +100,14 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         use_location = _is_newer(
             location.get("GPSDatetime"), vehicle.get("GPSDatetime")
         )
-        _LOGGER.debug(
-            "Refresh done: position from %s (GPS time VehicleInfo=%s, lastLocation=%s)",
+        # Info on purpose (Ziv): one line per scheduled refresh is always
+        # visible, so the polling cadence can be checked without debug.
+        _LOGGER.info(
+            "Chery Connect %s refreshed (every %s): %d fields, position from %s "
+            "(GPS time VehicleInfo=%s, lastLocation=%s)",
+            self.config_entry.title,
+            self.update_interval,
+            len(vehicle),
             "lastLocation" if use_location else "VehicleInfo",
             vehicle.get("GPSDatetime"),
             location.get("GPSDatetime"),

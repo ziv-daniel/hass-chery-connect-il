@@ -7,7 +7,8 @@
   check now looks only at the HTTP status, not the response body.
 
 ### Added
-- Logging: setup logs the refresh interval (info). Debug logging records
+- Logging: setup logs the refresh interval and every scheduled refresh logs
+  one summary line (info, always visible). Debug logging also records
   every API call (endpoint, status, duration, response field names), each
   scheduled refresh, and why a call failed. The token, phone, plate, SMS code
   and coordinates are never logged.

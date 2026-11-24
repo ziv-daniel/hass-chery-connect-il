@@ -55,7 +55,13 @@ async def test_setup_and_refresh_are_logged(
         assert f"API call POST {endpoint}" in text
         assert f"API POST {endpoint}: HTTP 200 in" in text
     assert f"API POST VehicleInfo: {len(vehicle_info)} fields" in text
-    assert "Refresh done: position from" in text
+    refreshed = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.INFO and "refreshed (every 0:10:00)" in r.getMessage()
+    ]
+    assert len(refreshed) == 1
+    assert f"{len(vehicle_info)} fields, position from" in refreshed[0].getMessage()
     for secret in _secrets(vehicle_info, last_location):
         assert secret not in text
 

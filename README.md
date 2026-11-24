@@ -67,8 +67,8 @@ When you report a bug, attach the diagnostics file (device page → ⋮ →
 are redacted in that file. Don't post `.storage` files, because they contain
 your token.
 
-At startup the log shows one info line with the refresh interval. Debug
-logging adds a line for every API call (endpoint, HTTP status, duration,
+The log always shows one line at startup with the refresh interval and one
+line per scheduled refresh. Debug logging adds a line for every API call (endpoint, HTTP status, duration,
 which fields came back) and for every scheduled refresh. These lines never
 include the token, phone, plate, SMS code or coordinates. To turn it on, go
 to **Settings → Devices & services → Chery Connect → ⋮ → Enable debug
