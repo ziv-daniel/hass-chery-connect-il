@@ -149,6 +149,8 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         entry: CheryConfigEntry,
         update_interval: timedelta,
         ev_api: CheryConnectApiClient | None = None,
+        *,
+        ev_shared: bool = False,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -161,6 +163,9 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.api = api
         self.ev_api = ev_api
         self._ev_auth_failed = False
+        # ev_api holds the Chery login rather than an iPointer one.
+        self.ev_shared = ev_shared
+        self._ev_shared_ok = False
         self.idle_interval = update_interval
         self.extras = CheryExtras(api)
 
@@ -180,7 +185,9 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         vehicle, location = await self._fetch_vehicle()
         merged, use_location = merge_location(vehicle, location)
         self._log_refresh(vehicle, location, use_location)
-        if self.ev_api is not None:
+        if self.ev_shared:
+            await self._apply_shared_ev_tile(merged)
+        elif self.ev_api is not None:
             apply_ev_tile(merged, await self._fetch_ev_tile(self.ev_api))
         extras, new_alerts = await self.extras.async_refresh()
         merged.update(extras)
@@ -252,6 +259,47 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if tile is None:
             _LOGGER.debug("iPointer VehicleInfo has no usable EVTile")
         return tile
+
+    @property
+    def ev_login(self) -> str:
+        """Describe the iPointer login for diagnostics."""
+        if not self.ev_shared:
+            return "ipointer"
+        if self._ev_shared_ok:
+            return "chery_login_ok"
+        if self.ev_api is None:
+            return "chery_login_rejected"
+        return "chery_login_no_battery_data"
+
+    async def _apply_shared_ev_tile(self, data: dict[str, Any]) -> None:
+        """Add the iPointer battery tile fetched with the Chery login.
+
+        Until a tile has arrived once, a failure leaves the Chery data as
+        it is: the car may have no iPointer battery data at all. After that,
+        a failure shows unknown, as with a separate iPointer login. A
+        rejected login stops the attempts until the entry reloads.
+        """
+        tile = None
+        if self.ev_api is not None:
+            try:
+                tile = parse_ev_tile(await self.ev_api.get_vehicle_info())
+            except InvalidAuthError:
+                _LOGGER.info(
+                    "iPointer does not accept the Chery Connect login for %s; "
+                    "for battery data, connect iPointer in the integration options",
+                    self.config_entry.title,
+                )
+                self.ev_api = None
+            except CheryApiError as err:
+                _LOGGER.debug("iPointer refresh with the Chery login failed: %s", err)
+        if tile is not None and not self._ev_shared_ok:
+            _LOGGER.info(
+                "Battery data for %s comes from iPointer with the Chery login",
+                self.config_entry.title,
+            )
+            self._ev_shared_ok = True
+        if self._ev_shared_ok:
+            apply_ev_tile(data, tile)
 
     async def _renew_ev_token(self, ev_api: CheryConnectApiClient) -> None:
         """Get a new iPointer token with the stored refresh token.

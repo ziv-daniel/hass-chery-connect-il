@@ -79,8 +79,11 @@ There are no remote commands (lock, start), because the API doesn't offer any.
 
 If your car also has a Pointer iPointer service, the iPointer app shows the
 real battery level, electric range and charging state, including for cars
-the Chery Connect service sends placeholder values for. To use them, open
-the integration's **Configure** options, choose **Connect iPointer** and
+the Chery Connect service sends placeholder values for. Both apps run on the
+same Pointer backend, so the integration first tries your Chery Connect
+login on iPointer. If iPointer accepts it, the battery data appears with no
+extra step. If not, open the integration's **Configure** options, choose
+**Connect iPointer** and
 enter the SMS code iPointer sends to the phone already configured. The EV
 battery, electric range, charging and charge status entities then come from
 iPointer; charge status shows the time left to a full charge. Signing in

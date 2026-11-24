@@ -29,6 +29,7 @@ from custom_components.chery_connect.const import (
     ENDPOINT_HISTORY,
     ENDPOINT_MESSAGES,
     ENDPOINT_MY_CAR,
+    IPOINTER_API_BASE_URL,
     MY_CAR_TAB_DISTANCE,
     MY_CAR_TAB_DRIVER_ALERTS,
     MY_CAR_TAB_DRIVING_EVENTS,
@@ -42,6 +43,27 @@ from .const import (
     TOKEN,
     V_NUMBER,
 )
+
+
+@pytest.fixture(autouse=True)
+def ipointer_rejects_chery_login(aioclient_mock: AiohttpClientMocker) -> None:
+    """Answer an iPointer call no test registered with HTTP 401.
+
+    Without an iPointer login the integration tries the Chery login on
+    iPointer. Tests that do not care get the rejection; tests that register
+    an iPointer answer still get theirs, since registered mocks match first.
+    """
+    match_request = aioclient_mock.match_request
+
+    async def _match_request(method: str, url: Any, *args: Any, **kwargs: Any):
+        try:
+            return await match_request(method, url, *args, **kwargs)
+        except AssertionError:
+            if not str(url).startswith(IPOINTER_API_BASE_URL):
+                raise
+            return AiohttpClientMockResponse(method, URL(str(url)), status=401)
+
+    aioclient_mock.match_request = _match_request
 
 
 @pytest.fixture(autouse=True)

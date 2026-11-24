@@ -65,16 +65,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: CheryConfigEntry) -> boo
         entry.title,
         interval,
     )
-    ev_api = None
-    if not (ipointer_token := entry.data.get(CONF_IPOINTER_TOKEN)):
+    if ipointer_token := entry.data.get(CONF_IPOINTER_TOKEN):
+        _LOGGER.debug("Setup %s: battery data from iPointer", entry.title)
+    else:
         # Disconnected: a login issue raised before no longer applies.
         delete_ev_auth_issue(hass, entry)
-    else:
-        _LOGGER.debug("Setup %s: battery data from iPointer", entry.title)
-        ev_api = CheryConnectApiClient(
-            async_get_clientsession(hass), ipointer_token, ipointer=True
-        )
-    coordinator = CheryConnectCoordinator(hass, api, entry, interval, ev_api)
+        # Both apps use the same Pointer backend, so iPointer may accept the
+        # Chery Connect login: then no second login is needed.
+        _LOGGER.debug("Setup %s: trying iPointer with the Chery login", entry.title)
+    ev_api = CheryConnectApiClient(
+        async_get_clientsession(hass),
+        ipointer_token or entry.data[CONF_TOKEN],
+        ipointer=True,
+    )
+    coordinator = CheryConnectCoordinator(
+        hass, api, entry, interval, ev_api, ev_shared=not ipointer_token
+    )
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 

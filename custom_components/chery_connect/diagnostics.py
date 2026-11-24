@@ -40,5 +40,6 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": async_redact_data(entry.as_dict(), TO_REDACT_ENTRY),
         "last_update_success": coordinator.last_update_success,
+        "ev_login": coordinator.ev_login,
         "data": async_redact_data(coordinator.data or {}, TO_REDACT_DATA),
     }
