@@ -1,98 +1,97 @@
-# hass-chery-connect-il
+# Chery Connect for Home Assistant
 
-Home Assistant custom integration for **Chery Connect** (Carasso / Pointer)
-— vehicle telemetry via owner OTP login. Read-only.
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![GitHub release](https://img.shields.io/github/v/release/ziv-daniel/hass-chery-connect-il)](https://github.com/ziv-daniel/hass-chery-connect-il/releases)
+[![CI](https://github.com/ziv-daniel/hass-chery-connect-il/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ziv-daniel/hass-chery-connect-il/actions/workflows/ci.yml)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.11%2B-41BDF5.svg)](https://www.home-assistant.io/)
+[![License: MIT](https://img.shields.io/github/license/ziv-daniel/hass-chery-connect-il)](LICENSE)
 
-> **Unofficial.** Not affiliated with Chery, Carasso or Pointer. This
-> integration uses the app's private API, which may change or break at any
-> time, and using it may be against the provider's terms. Use at your own
-> risk.
+Read-only Home Assistant integration for cars registered in the Israeli
+**Chery Connect** app (Carasso / Pointer). You log in with your phone number
+and an SMS code, the same way as in the app.
 
-## What it does
+> Unofficial. Not affiliated with Chery, Carasso or Pointer. It uses the
+> app's private API, which can change without notice.
 
-Polls the same API the Chery Connect app (v1.5.5) uses and exposes:
+## Installation
 
-- **Sensors:** odometer, fuel level, range, 12V battery voltage, speed,
-  electric range, tyre pressure (4 wheels), next service / insurance /
-  licence dates
-- **Binary sensors:** charging, engine on
-- **Device tracker:** vehicle location, address, GPS time, speed, direction
+### HACS (recommended)
 
-Only entities for fields your car reports are created (a petrol car gets no
-charging or electric-range entity). Voltage, tyre pressures and the dates
-are diagnostic entities; the speed sensor is disabled by default (the
-tracker carries speed as an attribute). Names are translated (English,
-Hebrew).
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ziv-daniel&repository=hass-chery-connect-il&category=integration)
 
-## Login
+Or in HACS → ⋮ → **Custom repositories**, add
+`https://github.com/ziv-daniel/hass-chery-connect-il` as an **Integration**.
+Download **Chery Connect**, then restart Home Assistant.
 
-Add the integration in Home Assistant, enter the mobile phone number and
-vehicle number you use in the Chery Connect app, then enter the SMS code.
-The token is stored in the config entry.
+### Manual
 
-There is **no refresh token** in the app's API: when the server rejects the
-token (HTTP 401), Home Assistant asks you to re-authenticate with a new
-SMS code.
+Copy `custom_components/chery_connect` into your Home Assistant
+`config/custom_components/` folder and restart.
 
-## Polling
+## Setup
 
-Default refresh: **10 minutes**, minimum **5 minutes** (configurable in
-the integration options). Each cycle makes two API calls
-(`VehicleInfo` + `lastLocation`).
+[![Open your Home Assistant instance and start setting up Chery Connect.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=chery_connect)
 
-## Install (HACS, custom repository)
+1. **Settings → Devices & services → Add integration → Chery Connect**.
+2. Enter the mobile number and vehicle (plate) number registered in the
+   app.
+3. Enter the SMS code.
 
-This repository is **private**. Installing a private repository in HACS
-needs a GitHub token — see the HACS documentation for custom repositories.
-(This step is unverified; it has not been tested yet.)
+Each vehicle is a separate entry. To change the refresh interval (default
+10 minutes, 5–60), open the integration's **Configure** options.
+
+## Entities
+
+| Platform | Entities |
+| --- | --- |
+| Sensor | Odometer, fuel level, range, electric range, speed¹, 12V battery voltage², tyre pressure ×4², next service², insurance date², licence date² |
+| Binary sensor | Charging, engine on |
+| Device tracker | Location (with address, speed, direction and GPS time attributes) |
+
+¹ Disabled by default. ² Diagnostic entity.
+
+Entities are created only for the fields your car reports, so a petrol car
+has no charging or electric range entity. The UI is in English and Hebrew.
+There are no remote commands (lock, start), because the API doesn't offer any.
+
+## Re-authentication
+
+The API has no refresh token. When the server rejects the stored token,
+Home Assistant shows **Re-authenticate** on the integration under
+**Settings → Devices & services**: open it and enter a new SMS code. If the code doesn't arrive, tick **Send a new code** and submit.
 
 ## Troubleshooting
 
-- **Re-authentication requested:** the server rejected the stored token.
-  Open the notification, press submit and enter the new SMS code. Phone
-  and vehicle cannot change here; to switch car, remove and re-add the
-  integration.
-- **Didn't get the SMS:** on the code step tick "Send a new code" and
-  submit.
-- **Bug reports:** attach the integration's diagnostics (device page →
-  ⋮ → Download diagnostics). Token, phone, plate, coordinates and address
-  are redacted. Please don't paste raw logs or app traffic captures; they
-  contain your token.
-- **Debug logging:**
+When you report a bug, attach the diagnostics file (device page → ⋮ →
+**Download diagnostics**). The token, phone, plate, coordinates and address
+are redacted in that file. Don't post raw logs or `.storage` files, because
+they contain your token.
 
-  ```yaml
-  logger:
-    logs:
-      custom_components.chery_connect: debug
-  ```
+To turn on debug logging:
+
+```yaml
+logger:
+  logs:
+    custom_components.chery_connect: debug
+```
 
 ## Removal
 
-Settings → Devices & services → Chery Connect → ⋮ → Delete. This removes
-the stored token. Then remove the files (or the HACS repository).
-
-## Notes
-
-- Read-only: the API exposes no remote commands (lock/unlock/start), so
-  none are implemented.
-- One vehicle per config entry (the app itself supports up to 8).
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) lists what was deliberately
-  left out and what still needs a live login test.
+Delete the integration under **Settings → Devices & services**, which
+removes the stored token. Then remove it in HACS, or delete the folder.
 
 ## Development
 
-Requires Python 3.14 (same as Home Assistant 2026.10).
+Requires Python 3.14.
 
 ```bash
-python3.14 -m venv .venv && . .venv/bin/activate
 pip install -r requirements_test.txt
-pytest                       # Home Assistant test harness
-ruff check . && ruff format --check .   # Home Assistant core lint rules
-mypy custom_components       # strict typing
+pytest
+ruff check . && ruff format --check .
+mypy custom_components
 ```
 
-Validate the manifest and translations with hassfest:
-
-```bash
-docker run --rm -v "$PWD":/github/workspace ghcr.io/home-assistant/hassfest
-```
+CI runs these checks together with hassfest and HACS validation.
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) lists the scope decisions and
+the behaviour that still needs to be checked against a live car.
+Security issues: see [SECURITY.md](SECURITY.md).

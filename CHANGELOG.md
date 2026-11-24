@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-11-24)
 
 ### Fixed
 - An expired token now opens re-authentication instead of failing setup.
@@ -14,6 +14,7 @@
 - Translated entity names (English, Hebrew) and icons.
 - Diagnostics download with token, phone, plate and location redacted.
 - Test suite, CI workflow, security policy.
+- README with install and setup buttons; repository is public.
 
 ### Changed
 - Only entities for fields the vehicle reports are created.
