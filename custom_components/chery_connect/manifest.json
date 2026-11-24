@@ -1,6 +1,6 @@
 {
   "domain": "chery_connect",
-  "name": "Chery Connect",
+  "name": "Chery Car Connect IL",
   "codeowners": [
     "@ziv-daniel"
   ],
@@ -14,5 +14,5 @@
     "custom_components.chery_connect"
   ],
   "requirements": [],
-  "version": "0.2.2"
+  "version": "0.2.3"
 }
