@@ -15,6 +15,7 @@
 - Diagnostics download with token, phone, plate and location redacted.
 - Test suite, CI workflow, security policy.
 - README with install and setup buttons; repository is public.
+- Brand icons (light and dark) for the integrations page and HACS.
 
 ### Changed
 - Only entities for fields the vehicle reports are created.
