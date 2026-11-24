@@ -22,8 +22,7 @@ IL_COUNTRY_CODE: Final = "972"
 # screenshots and bug reports).
 VISIBLE_PLATE_DIGITS: Final = 3
 
-# API configuration — verified from Chery Connect v1.5.5 app.js.
-# See CHERY_API_CONTRACT.md in the workspace (not shipped in the repo).
+# API configuration, taken from the Chery Connect v1.5.5 app.
 API_BASE_URL: Final = "https://iot.pointer4u.co.il/iservices/carassoApp/api/"
 APPID: Final = 34
 API_TIMEOUT: Final = 15

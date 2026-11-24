@@ -28,8 +28,6 @@ app's JavaScript; nothing here is an official contract.
    dates are read as calendar dates.
 4. **Units and types.** Tyre pressure is assumed PSI and fuel level
    percent; numbers are parsed leniently from strings.
-5. **HACS install from a private repository.** Needs a GitHub token in
-   HACS; untested.
 
 ## Checks
 

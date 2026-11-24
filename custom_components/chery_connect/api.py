@@ -1,7 +1,6 @@
 """Chery Connect API client.
 
-Verified against the Chery Connect v1.5.5 app.js (see the workspace copy of
-CHERY_API_CONTRACT.md). Auth is owner OTP: login/otp sends an SMS, then
+Mirrors the Chery Connect v1.5.5 app. Auth is owner OTP: login/otp sends an SMS, then
 login/otpCheck returns a Bearer token. There is NO refresh endpoint — when
 the server answers 401 the token is dead and the user must re-authenticate
 with a new OTP. Never log the token, phone number or plate number.
