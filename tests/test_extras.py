@@ -314,6 +314,11 @@ def test_extras_value_helpers_tolerate_non_dicts(value: Any) -> None:
             (None, None, None),
             id="unknown_title_and_junk",
         ),
+        pytest.param(
+            {"data": [{"value": "nan"}, {"value": "inf"}, {"value": "-inf"}]},
+            (None, None, None),
+            id="non_finite",
+        ),
         pytest.param({"data": "not json"}, (None, None, None), id="bad_json"),
         pytest.param({}, (None, None, None), id="missing"),
     ],

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -110,7 +111,7 @@ def parse_driving_events(payload: dict[str, Any]) -> dict[str, int | None]:
         if key is None:
             continue
         count = parse_float(bar.get("value"))
-        values[key] = None if count is None else int(count)
+        values[key] = int(count) if count is not None and math.isfinite(count) else None
     return values
 
 
