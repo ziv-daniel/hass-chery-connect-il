@@ -28,6 +28,12 @@ from .entity import CheryConnectEntity, has_value
 PARALLEL_UPDATES = 0
 
 
+def _recommended(data: dict[str, Any], field: str) -> float | None:
+    """Recommended PSI; the server sends -1 (or 0) when it has none."""
+    value = parse_float(data.get(field))
+    return value if value is not None and value > 0 else None
+
+
 def _tyre_max_diff(data: dict[str, Any]) -> float:
     max_diff = parse_float(data.get("maxDiff"))
     return DEFAULT_TYRE_MAX_DIFF if max_diff is None else max_diff
@@ -37,13 +43,14 @@ def tyre_pressure_low(data: dict[str, Any]) -> bool | None:
     """Return True when any tyre is below the recommended PSI minus maxDiff.
 
     A reading of 0 means the tyre sensors are asleep, not a flat tyre, so
-    it is ignored. None when there is no recommendation or no reading.
+    it is ignored. None when there is no recommendation or no reading
+    (the app then shows a false "pressure not OK" with "-1 PSI").
     """
     max_diff = _tyre_max_diff(data)
     lows: list[bool] = []
     for required_field, tyre_fields in TYRE_AXLES:
-        required = parse_float(data.get(required_field))
-        if not required:
+        required = _recommended(data, required_field)
+        if required is None:
             continue
         for tyre_field in tyre_fields:
             reading = parse_float(data.get(tyre_field))
@@ -55,8 +62,8 @@ def tyre_pressure_low(data: dict[str, Any]) -> bool | None:
 def tyre_attributes(data: dict[str, Any]) -> dict[str, Any]:
     """Recommended pressures (PSI) and the allowed difference."""
     return {
-        "recommended_front": parse_float(data.get("PSI_FRONT")),
-        "recommended_rear": parse_float(data.get("PSI_BACK")),
+        "recommended_front": _recommended(data, "PSI_FRONT"),
+        "recommended_rear": _recommended(data, "PSI_BACK"),
         "max_difference": _tyre_max_diff(data),
     }
 

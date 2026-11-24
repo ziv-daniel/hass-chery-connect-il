@@ -19,6 +19,9 @@
 ### Fixed
 - 12V battery voltage no longer shows unknown when the car sends the value
   with its unit (e.g. "14.5V", as the app displays it).
+- Tyre pressure low stays unknown when the server has no recommended
+  pressure (it sends -1), instead of judging against it; the app shows a
+  false "pressure not OK" in that case.
 
 ### Changed
 - Tyre pressure is shown in PSI, the unit the car reports and the one used at

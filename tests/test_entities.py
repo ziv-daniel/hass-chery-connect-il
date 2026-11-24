@@ -325,6 +325,11 @@ TYRE_LOW = "binary_sensor.chery_tiggo_8_pro_tyre_pressure_low"
         pytest.param(
             {"PSI_BACK": "", "Frontlefttyrepressure": "30"}, "on", id="front_only"
         ),
+        pytest.param(
+            {"PSI_FRONT": "-1", "PSI_BACK": -1, "Frontlefttyrepressure": "30"},
+            "unknown",
+            id="server_has_no_recommendation",
+        ),
     ],
 )
 async def test_tyre_pressure_low(
@@ -405,3 +410,20 @@ async def test_ev_battery_and_charge_status(
 def test_voltage_accepts_unit_suffix(value: Any, expected: float | None) -> None:
     """The 12V reading may carry its unit, as the app shows it verbatim."""
     assert _voltage(value) == expected
+
+
+async def test_tyre_low_hides_negative_recommendation(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    vehicle_info: dict[str, Any],
+    last_location: dict[str, Any],
+) -> None:
+    """A "-1" recommendation (none on file) is no recommendation, not -1 PSI."""
+    vehicle_info["PSI_FRONT"] = "-1"
+    await _setup_with(
+        hass, mock_config_entry, aioclient_mock, vehicle_info, last_location
+    )
+    attributes = hass.states.get(TYRE_LOW).attributes
+    assert attributes["recommended_front"] is None
+    assert attributes["recommended_rear"] == 36.0
