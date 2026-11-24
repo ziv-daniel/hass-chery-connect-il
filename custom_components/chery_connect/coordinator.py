@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
@@ -16,16 +17,22 @@ from .api import (
     CheryConnectApiClient,
     InvalidAuthError,
     parse_api_time,
+    parse_ev_tile,
     parse_float,
 )
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CHARGING_ON_VALUES,
+    CONF_IPOINTER_REFRESH_TOKEN,
     DOMAIN,
     ELECTRIC_DESIGN_FIELD,
     ELECTRIC_DESIGNS,
     ENGINE_ON_VALUES,
+    EV_SOURCE_IPOINTER,
     EVENT_DRIVER_ALERT,
+    EXTRA_EV_SOURCE,
+    IPOINTER_EV_FIELDS,
+    ISSUE_IPOINTER_AUTH,
     LOCATION_OVERLAY_FIELDS,
 )
 from .extras import CheryExtras, DriverAlert
@@ -54,8 +61,36 @@ def _is_newer(new_value: Any, old_value: Any) -> bool:
 
 
 def is_electric(data: dict[str, Any]) -> bool:
-    """Return True when the server reports real battery and charging data."""
-    return str(data.get(ELECTRIC_DESIGN_FIELD)) in ELECTRIC_DESIGNS
+    """Return True when the battery and charging data are real.
+
+    Either the Chery server marks the car electric, or the data comes from
+    iPointer.
+    """
+    return (
+        data.get(EXTRA_EV_SOURCE) == EV_SOURCE_IPOINTER
+        or str(data.get(ELECTRIC_DESIGN_FIELD)) in ELECTRIC_DESIGNS
+    )
+
+
+def apply_ev_tile(data: dict[str, Any], tile: dict[str, Any] | None) -> None:
+    """Replace the Chery Electric* fields with the iPointer battery tile.
+
+    Without a tile (iPointer failed) the fields become None, so the
+    entities show unknown instead of the Chery placeholders.
+    """
+    data[EXTRA_EV_SOURCE] = EV_SOURCE_IPOINTER
+    for field, tile_field in IPOINTER_EV_FIELDS:
+        data[field] = tile.get(tile_field) if tile is not None else None
+
+
+def ev_auth_issue_id(entry: ConfigEntry) -> str:
+    """Return the id of the entry's iPointer login repair issue."""
+    return f"{ISSUE_IPOINTER_AUTH}_{entry.entry_id}"
+
+
+def delete_ev_auth_issue(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove the entry's iPointer login repair issue, if any."""
+    ir.async_delete_issue(hass, DOMAIN, ev_auth_issue_id(entry))
 
 
 def is_charging(data: dict[str, Any]) -> bool:
@@ -113,6 +148,7 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         api: CheryConnectApiClient,
         entry: CheryConfigEntry,
         update_interval: timedelta,
+        ev_api: CheryConnectApiClient | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -123,6 +159,8 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=update_interval,
         )
         self.api = api
+        self.ev_api = ev_api
+        self._ev_auth_failed = False
         self.idle_interval = update_interval
         self.extras = CheryExtras(api)
 
@@ -142,6 +180,8 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         vehicle, location = await self._fetch_vehicle()
         merged, use_location = merge_location(vehicle, location)
         self._log_refresh(vehicle, location, use_location)
+        if self.ev_api is not None:
+            apply_ev_tile(merged, await self._fetch_ev_tile(self.ev_api))
         extras, new_alerts = await self.extras.async_refresh()
         merged.update(extras)
         self._fire_driver_alerts(new_alerts)
@@ -179,6 +219,68 @@ class CheryConnectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("Refresh failed: %s", err)
             raise UpdateFailed(f"Failed to fetch Chery data: {err}") from err
         return vehicle, location
+
+    async def _fetch_ev_tile(
+        self, ev_api: CheryConnectApiClient
+    ) -> dict[str, Any] | None:
+        """Fetch the iPointer battery tile; None when it is unavailable.
+
+        iPointer is optional: its failures never fail the refresh. A
+        rejected token is renewed once with the refresh token; if that
+        fails too, a repair issue asks the user to connect iPointer again.
+        """
+        try:
+            try:
+                info = await ev_api.get_vehicle_info()
+            except InvalidAuthError:
+                await self._renew_ev_token(ev_api)
+                info = await ev_api.get_vehicle_info()
+        except InvalidAuthError:
+            if not self._ev_auth_failed:
+                _LOGGER.warning(
+                    "iPointer rejected the login for %s; connect iPointer again "
+                    "in the integration options",
+                    self.config_entry.title,
+                )
+            self._set_ev_auth_issue(active=True)
+            return None
+        except CheryApiError as err:
+            _LOGGER.debug("iPointer refresh failed: %s", err)
+            return None
+        self._set_ev_auth_issue(active=False)
+        tile = parse_ev_tile(info)
+        if tile is None:
+            _LOGGER.debug("iPointer VehicleInfo has no usable EVTile")
+        return tile
+
+    async def _renew_ev_token(self, ev_api: CheryConnectApiClient) -> None:
+        """Get a new iPointer token with the stored refresh token.
+
+        The new token is kept in memory only; after a restart the refresh
+        token renews it again. Raises InvalidAuthError when that fails.
+        """
+        refresh_token = self.config_entry.data.get(CONF_IPOINTER_REFRESH_TOKEN)
+        if not refresh_token:
+            raise InvalidAuthError("No iPointer refresh token")
+        _LOGGER.debug("iPointer token rejected, renewing it")
+        await ev_api.refresh(refresh_token)
+
+    def _set_ev_auth_issue(self, *, active: bool) -> None:
+        """Raise or clear the repair issue for a dead iPointer login."""
+        self._ev_auth_failed = active
+        if not active:
+            delete_ev_auth_issue(self.hass, self.config_entry)
+            return
+        issue_id = ev_auth_issue_id(self.config_entry)
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_IPOINTER_AUTH,
+            translation_placeholders={"entry_title": self.config_entry.title},
+        )
 
     def _fire_driver_alerts(self, alerts: list[DriverAlert]) -> None:
         """Fire one bus event per new driver-behaviour alert."""

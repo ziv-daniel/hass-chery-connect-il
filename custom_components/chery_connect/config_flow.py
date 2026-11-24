@@ -5,6 +5,10 @@ number and the server sends an SMS OTP; step 2 exchanges the code for a
 Bearer token. There is no refresh token, so an expired token triggers the
 reauth flow: the user confirms, a new SMS is sent for the same vehicle,
 and only the token in the entry is replaced.
+
+The options flow can also connect the iPointer app's API with the same
+two SMS steps. It is the only source of real battery data for cars such as
+the Tiggo 8 PHEV.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     TextSelector,
@@ -41,6 +45,8 @@ else:
 from .api import BlockedError, CheryApiError, CheryConnectApiClient, InvalidOtpError
 from .const import (
     CONF_CODE,
+    CONF_IPOINTER_REFRESH_TOKEN,
+    CONF_IPOINTER_TOKEN,
     CONF_MOBILE_PHONE,
     CONF_RESEND,
     CONF_SCAN_INTERVAL,
@@ -134,6 +140,45 @@ def options_schema(current: int) -> vol.Schema:
     )
 
 
+async def async_send_otp(
+    hass: HomeAssistant, phone: str, v_number: str, *, ipointer: bool = False
+) -> str | None:
+    """Ask the server to SMS a code; return an error key on failure."""
+    client = CheryConnectApiClient(async_get_clientsession(hass), ipointer=ipointer)
+    try:
+        await client.request_otp(phone, v_number)
+    except BlockedError:
+        return ERROR_BLOCKED
+    except CheryApiError:
+        return ERROR_CANNOT_CONNECT
+    except Exception:
+        _LOGGER.exception("Unexpected error requesting the SMS code")
+        return ERROR_UNKNOWN
+    return None
+
+
+async def async_check_otp(
+    hass: HomeAssistant,
+    phone: str,
+    v_number: str,
+    code: str,
+    *,
+    ipointer: bool = False,
+) -> tuple[CheryConnectApiClient | None, str | None]:
+    """Exchange the code for a token; return (logged-in client, error key)."""
+    client = CheryConnectApiClient(async_get_clientsession(hass), ipointer=ipointer)
+    try:
+        await client.check_otp(phone, v_number, code)
+    except InvalidOtpError:
+        return None, ERROR_INVALID_OTP
+    except CheryApiError:
+        return None, ERROR_CANNOT_CONNECT
+    except Exception:
+        _LOGGER.exception("Unexpected error checking the SMS code")
+        return None, ERROR_UNKNOWN
+    return client, None
+
+
 class CheryConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the Chery Connect config flow."""
 
@@ -146,31 +191,14 @@ class CheryConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _send_otp(self) -> str | None:
         """Ask the server to SMS a code; return an error key on failure."""
-        client = CheryConnectApiClient(async_get_clientsession(self.hass))
-        try:
-            await client.request_otp(self._mobile_phone, self._v_number)
-        except BlockedError:
-            return ERROR_BLOCKED
-        except CheryApiError:
-            return ERROR_CANNOT_CONNECT
-        except Exception:
-            _LOGGER.exception("Unexpected error requesting the SMS code")
-            return ERROR_UNKNOWN
-        return None
+        return await async_send_otp(self.hass, self._mobile_phone, self._v_number)
 
     async def _check_otp(self, code: str) -> tuple[str | None, str | None]:
         """Exchange the code for a token; return (token, error key)."""
-        client = CheryConnectApiClient(async_get_clientsession(self.hass))
-        try:
-            token = await client.check_otp(self._mobile_phone, self._v_number, code)
-        except InvalidOtpError:
-            return None, ERROR_INVALID_OTP
-        except CheryApiError:
-            return None, ERROR_CANNOT_CONNECT
-        except Exception:
-            _LOGGER.exception("Unexpected error checking the SMS code")
-            return None, ERROR_UNKNOWN
-        return token, None
+        client, error = await async_check_otp(
+            self.hass, self._mobile_phone, self._v_number, code
+        )
+        return (client.token if client is not None else None), error
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -261,15 +289,98 @@ class CheryConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class CheryConnectOptionsFlow(OptionsFlow):
-    """Handle the Chery Connect options (poll interval)."""
+    """Handle the options: poll interval and the iPointer battery source."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options: scan interval in minutes."""
+        """Show the options menu."""
+        menu = ["settings", "ipointer"]
+        if CONF_IPOINTER_TOKEN in self.config_entry.data:
+            menu.append("ipointer_disconnect")
+        return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the scan interval in minutes."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input}
+            )
         current = self.config_entry.options.get(
             CONF_SCAN_INTERVAL, _minutes(DEFAULT_SCAN_INTERVAL)
         )
-        return self.async_show_form(step_id="init", data_schema=options_schema(current))
+        return self.async_show_form(
+            step_id="settings", data_schema=options_schema(current)
+        )
+
+    async def _send_ipointer_otp(self) -> str | None:
+        """Ask iPointer to SMS a code to the entry's phone, for its vehicle."""
+        return await async_send_otp(
+            self.hass,
+            self.config_entry.data[CONF_MOBILE_PHONE],
+            self.config_entry.data[CONF_V_NUMBER],
+            ipointer=True,
+        )
+
+    async def async_step_ipointer(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Send the iPointer SMS only after the user confirms."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if (error := await self._send_ipointer_otp()) is None:
+                return await self.async_step_ipointer_otp()
+            errors["base"] = error
+        return self.async_show_form(step_id="ipointer", errors=errors)
+
+    async def async_step_ipointer_otp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Enter the iPointer SMS code, or ask for a new one."""
+        errors: dict[str, str] = {}
+        if user_input is not None and user_input.get(CONF_RESEND):
+            if error := await self._send_ipointer_otp():
+                errors["base"] = error
+        elif user_input is not None:
+            code = str(user_input.get(CONF_CODE, "")).strip()
+            client, error = (
+                await async_check_otp(
+                    self.hass,
+                    self.config_entry.data[CONF_MOBILE_PHONE],
+                    self.config_entry.data[CONF_V_NUMBER],
+                    code,
+                    ipointer=True,
+                )
+                if code
+                else (None, None)
+            )
+            if client is not None and client.token is not None:
+                data = {**self.config_entry.data, CONF_IPOINTER_TOKEN: client.token}
+                data.pop(CONF_IPOINTER_REFRESH_TOKEN, None)
+                if client.refresh_token:
+                    data[CONF_IPOINTER_REFRESH_TOKEN] = client.refresh_token
+                return self._async_save_data(data)
+            errors["base"] = error or ERROR_INVALID_OTP
+        return self.async_show_form(
+            step_id="ipointer_otp", data_schema=STEP_OTP_SCHEMA, errors=errors
+        )
+
+    async def async_step_ipointer_disconnect(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Stop using iPointer after the user confirms."""
+        if user_input is not None:
+            data = {
+                key: value
+                for key, value in self.config_entry.data.items()
+                if key not in (CONF_IPOINTER_TOKEN, CONF_IPOINTER_REFRESH_TOKEN)
+            }
+            return self._async_save_data(data)
+        return self.async_show_form(step_id="ipointer_disconnect")
+
+    def _async_save_data(self, data: dict[str, Any]) -> ConfigFlowResult:
+        """Store new entry data; the update listener reloads the entry."""
+        self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+        return self.async_create_entry(data=dict(self.config_entry.options))

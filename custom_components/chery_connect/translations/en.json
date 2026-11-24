@@ -46,12 +46,47 @@
   "options": {
     "step": {
       "init": {
+        "title": "Chery Car Connect IL options",
+        "menu_options": {
+          "settings": "Refresh interval",
+          "ipointer": "Connect iPointer (real battery data)",
+          "ipointer_disconnect": "Disconnect iPointer"
+        }
+      },
+      "settings": {
+        "title": "Refresh interval",
+        "description": "How often to refresh the vehicle data. Minimum 5 minutes.",
         "data": {
           "scan_interval": "Refresh interval (minutes)"
+        }
+      },
+      "ipointer": {
+        "title": "Connect iPointer",
+        "description": "For some cars, such as the Tiggo 8 PHEV, the Chery Connect service sends fixed battery values. The iPointer app has the real battery level, electric range and charging state. Submit to send an SMS code to the phone number already configured, using the vehicle already configured. Your car needs an iPointer service; signing in here may sign the iPointer app on your phone out."
+      },
+      "ipointer_otp": {
+        "title": "Enter the iPointer SMS code",
+        "description": "Enter the code iPointer sent by SMS. If it did not arrive or expired, ask for a new one.",
+        "data": {
+          "code": "SMS code",
+          "resend": "Send a new code"
         },
-        "description": "How often to refresh the vehicle data. Minimum 5 minutes.",
-        "title": "Chery Car Connect IL options"
+        "data_description": {
+          "resend": "Tick this and submit to get a new SMS code instead of entering one."
+        }
+      },
+      "ipointer_disconnect": {
+        "title": "Disconnect iPointer",
+        "description": "Stop reading the battery data from iPointer. The battery entities will show the Chery Connect values again, or disappear if Chery Connect does not report them."
       }
+    },
+    "error": {
+      "blocked": "The server refused this login. Check the phone and vehicle numbers.",
+      "cannot_connect": "Could not reach the Chery Connect service. Check the connection and try again.",
+      "invalid_otp": "The SMS code was rejected. Request a new code and try again.",
+      "unknown": "An unknown error occurred.",
+      "invalid_phone": "Enter the phone number using digits and dashes only, for example 050-1234567.",
+      "invalid_v_number": "Enter the vehicle number using digits and dashes only, for example 12-345-67."
     }
   },
   "entity": {
@@ -192,6 +227,12 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "ipointer_auth_failed": {
+      "title": "iPointer login expired",
+      "description": "iPointer no longer accepts the login for {entry_title}, so the battery entities show unknown. Open the integration's options and choose \"Connect iPointer\" to sign in again."
     }
   }
 }

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0b4 (2026-11-24, beta)
+
+### Added
+- Optional iPointer source for real battery data. **Configure → Connect
+  iPointer** signs in to the iPointer app's API with an SMS code. EV battery,
+  electric range, charging and charge status (time to a full charge) then
+  come from iPointer, which has the real values for cars, such as the Tiggo 8
+  PHEV, that Chery Connect sends placeholders for. If iPointer fails, those
+  entities show unknown. A dead login raises a repair issue. A rejected token
+  is first renewed with the refresh token.
+- The options are now a menu: refresh interval, connect iPointer, and
+  disconnect iPointer.
+
 ## 0.3.0b3 (2026-11-24, beta)
 
 ### Fixed

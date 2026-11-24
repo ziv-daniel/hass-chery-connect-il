@@ -16,12 +16,16 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
 from custom_components.chery_connect.const import (
     API_BASE_URL,
     CONF_CODE,
+    CONF_IPOINTER_REFRESH_TOKEN,
+    CONF_IPOINTER_TOKEN,
     CONF_MOBILE_PHONE,
     CONF_RESEND,
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     CONF_V_NUMBER,
     DOMAIN,
+    IPOINTER_API_BASE_URL,
+    IPOINTER_APPID,
 )
 
 from .const import CODE, NEW_TOKEN, OTHER_V_NUMBER, PHONE, TOKEN, V_NUMBER
@@ -363,6 +367,23 @@ async def test_reauth_unique_id_mismatch(
     assert not _otp_requests(aioclient_mock)
 
 
+IPOINTER_OTP_URL = f"{IPOINTER_API_BASE_URL}login/otp"
+IPOINTER_OTP_CHECK_URL = f"{IPOINTER_API_BASE_URL}login/otpCheck"
+IPOINTER_TOKEN = "i" * 32
+IPOINTER_REFRESH = "r" * 32
+
+
+async def _options_step(
+    hass: HomeAssistant, entry: MockConfigEntry, step: str
+) -> dict[str, Any]:
+    """Open the options menu and pick one of its steps."""
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": step}
+    )
+
+
 async def test_options_flow(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
@@ -371,8 +392,8 @@ async def test_options_flow(
     hass.config_entries.async_update_entry(
         mock_config_entry, options={CONF_SCAN_INTERVAL: 15}
     )
-    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
-    assert result["step_id"] == "init"
+    result = await _options_step(hass, mock_config_entry, "settings")
+    assert result["step_id"] == "settings"
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {CONF_SCAN_INTERVAL: 30}
@@ -380,3 +401,166 @@ async def test_options_flow(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert mock_config_entry.options == {CONF_SCAN_INTERVAL: 30}
+
+
+async def test_options_menu_offers_disconnect_only_when_connected(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Disconnect appears only once iPointer is connected."""
+    mock_config_entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    assert result["menu_options"] == ["settings", "ipointer"]
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={**mock_config_entry.data, CONF_IPOINTER_TOKEN: IPOINTER_TOKEN},
+    )
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    assert result["menu_options"] == ["settings", "ipointer", "ipointer_disconnect"]
+
+
+async def test_ipointer_connect(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+) -> None:
+    """Connecting iPointer stores its tokens and keeps the Chery login."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry, options={CONF_SCAN_INTERVAL: 15}
+    )
+    aioclient_mock.post(IPOINTER_OTP_URL, json={"rescode": 1})
+    aioclient_mock.post(
+        IPOINTER_OTP_CHECK_URL,
+        json={"token": IPOINTER_TOKEN, "refresh_token": IPOINTER_REFRESH},
+    )
+
+    result = await _options_step(hass, mock_config_entry, "ipointer")
+    assert result["step_id"] == "ipointer"
+    assert not aioclient_mock.mock_calls
+
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "ipointer_otp"
+    sms = aioclient_mock.mock_calls[0][2]
+    assert sms == {
+        "MobilePhone": PHONE,
+        "VNumber": V_NUMBER,
+        "appid": IPOINTER_APPID,
+    }
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_CODE: CODE}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert mock_config_entry.data == {
+        CONF_MOBILE_PHONE: PHONE,
+        CONF_V_NUMBER: V_NUMBER,
+        CONF_TOKEN: TOKEN,
+        CONF_IPOINTER_TOKEN: IPOINTER_TOKEN,
+        CONF_IPOINTER_REFRESH_TOKEN: IPOINTER_REFRESH,
+    }
+    assert mock_config_entry.options == {CONF_SCAN_INTERVAL: 15}
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "errors"),
+    [
+        pytest.param({"json": {"rescode": -2}}, {"base": "blocked"}, id="blocked"),
+        pytest.param({"status": 500}, {"base": "cannot_connect"}, id="failed"),
+    ],
+)
+async def test_ipointer_sms_error(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    kwargs: dict[str, Any],
+    errors: dict[str, str],
+) -> None:
+    """A failed iPointer SMS stays on the confirm step."""
+    mock_config_entry.add_to_hass(hass)
+    aioclient_mock.post(IPOINTER_OTP_URL, **kwargs)
+    result = await _options_step(hass, mock_config_entry, "ipointer")
+
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+
+    assert result["step_id"] == "ipointer"
+    assert result["errors"] == errors
+
+
+async def test_ipointer_bad_code_and_resend(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+) -> None:
+    """A rejected code or a resend keeps the step and stores nothing."""
+    mock_config_entry.add_to_hass(hass)
+    aioclient_mock.post(IPOINTER_OTP_URL, json={"rescode": 1})
+    aioclient_mock.post(IPOINTER_OTP_CHECK_URL, json={"token": ""})
+    result = await _options_step(hass, mock_config_entry, "ipointer")
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_CODE: CODE}
+    )
+    assert result["step_id"] == "ipointer_otp"
+    assert result["errors"] == {"base": "invalid_otp"}
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_RESEND: True}
+    )
+    assert result["step_id"] == "ipointer_otp"
+    assert result["errors"] == {}
+    sms_count = sum(
+        1 for _, url, _, _ in aioclient_mock.mock_calls if str(url) == IPOINTER_OTP_URL
+    )
+    assert sms_count == 2
+    assert CONF_IPOINTER_TOKEN not in mock_config_entry.data
+
+
+async def test_ipointer_connect_without_refresh_token(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+) -> None:
+    """A login without a refresh token drops an old one."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={**mock_config_entry.data, CONF_IPOINTER_REFRESH_TOKEN: "old" * 11},
+    )
+    aioclient_mock.post(IPOINTER_OTP_URL, json={"rescode": 1})
+    aioclient_mock.post(IPOINTER_OTP_CHECK_URL, json={"token": IPOINTER_TOKEN})
+    result = await _options_step(hass, mock_config_entry, "ipointer")
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_CODE: CODE}
+    )
+
+    assert mock_config_entry.data[CONF_IPOINTER_TOKEN] == IPOINTER_TOKEN
+    assert CONF_IPOINTER_REFRESH_TOKEN not in mock_config_entry.data
+
+
+async def test_ipointer_disconnect(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Disconnecting removes both iPointer tokens and nothing else."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={
+            **mock_config_entry.data,
+            CONF_IPOINTER_TOKEN: IPOINTER_TOKEN,
+            CONF_IPOINTER_REFRESH_TOKEN: IPOINTER_REFRESH,
+        },
+    )
+    result = await _options_step(hass, mock_config_entry, "ipointer_disconnect")
+    assert result["step_id"] == "ipointer_disconnect"
+
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert mock_config_entry.data == {
+        CONF_MOBILE_PHONE: PHONE,
+        CONF_V_NUMBER: V_NUMBER,
+        CONF_TOKEN: TOKEN,
+    }

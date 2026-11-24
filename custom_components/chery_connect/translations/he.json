@@ -46,12 +46,47 @@
   "options": {
     "step": {
       "init": {
+        "title": "אפשרויות Chery Car Connect IL",
+        "menu_options": {
+          "settings": "מרווח רענון",
+          "ipointer": "חיבור iPointer (נתוני סוללה אמיתיים)",
+          "ipointer_disconnect": "ניתוק iPointer"
+        }
+      },
+      "settings": {
+        "title": "מרווח רענון",
+        "description": "כל כמה זמן לרענן את נתוני הרכב. מינימום 5 דקות.",
         "data": {
           "scan_interval": "מרווח רענון (דקות)"
+        }
+      },
+      "ipointer": {
+        "title": "חיבור iPointer",
+        "description": "ברכבים מסוימים, כמו טיגו 8 PHEV, שירות Chery Connect שולח ערכי סוללה קבועים. באפליקציית iPointer יש את מצב הסוללה, הטווח החשמלי ומצב הטעינה האמיתיים. לחיצה על שליחה תשלח קוד SMS למספר הטלפון שכבר מוגדר, עבור הרכב שכבר מוגדר. נדרש שירות iPointer לרכב; ההתחברות כאן עלולה לנתק את אפליקציית iPointer בטלפון."
+      },
+      "ipointer_otp": {
+        "title": "הזנת קוד SMS של iPointer",
+        "description": "הזן את הקוד ש-iPointer שלחה ב-SMS. אם הוא לא הגיע או שפג תוקפו, בקש קוד חדש.",
+        "data": {
+          "code": "קוד SMS",
+          "resend": "שלח קוד חדש"
         },
-        "description": "כל כמה זמן לרענן את נתוני הרכב. מינימום 5 דקות.",
-        "title": "אפשרויות Chery Car Connect IL"
+        "data_description": {
+          "resend": "סמן ושלח כדי לקבל קוד SMS חדש במקום להזין קוד."
+        }
+      },
+      "ipointer_disconnect": {
+        "title": "ניתוק iPointer",
+        "description": "הפסקת קריאת נתוני הסוללה מ-iPointer. ישויות הסוללה יחזרו להציג את ערכי Chery Connect, או ייעלמו אם Chery Connect לא מדווח עליהם."
       }
+    },
+    "error": {
+      "blocked": "השרת סירב להתחברות. בדוק את מספר הטלפון ומספר הרכב.",
+      "cannot_connect": "לא ניתן להתחבר לשירות Chery Connect. בדוק את החיבור ונסה שוב.",
+      "invalid_otp": "הקוד נדחה. בקש קוד חדש ונסה שוב.",
+      "unknown": "אירעה שגיאה לא ידועה.",
+      "invalid_phone": "הזן מספר טלפון בספרות ומקפים בלבד, לדוגמה 050-1234567.",
+      "invalid_v_number": "הזן מספר רכב בספרות ומקפים בלבד, לדוגמה 12-345-67."
     }
   },
   "entity": {
@@ -192,6 +227,12 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "ipointer_auth_failed": {
+      "title": "פג תוקף ההתחברות ל-iPointer",
+      "description": "iPointer כבר לא מקבל את ההתחברות של {entry_title}, ולכן ישויות הסוללה מציגות לא ידוע. פתח את האפשרויות של האינטגרציה ובחר \"חיבור iPointer\" כדי להתחבר מחדש."
     }
   }
 }
